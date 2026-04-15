@@ -861,4 +861,42 @@ mod tests {
         Ok(())
     }
 
+    #[test]
+    fn test_many_generation() {
+        let width = 30;
+        let height = 16;
+        let mines = 99;
+        let amount = 100_000usize; // 100_000_000usize;
+
+        let mut board = Board::new(width, height, mines)
+            .expect("Failed to create board");
+
+        let mut results_3bv = vec![0usize; 400usize];
+        let mut results_zini = vec![0usize; 400usize];
+        let mut count = 0usize;
+        while count < amount {
+            board.add_mines();
+            board.initialize_all().expect("Error initializing board");
+            board.calculate_zini_8way_small(false).expect("Error calculating ZINI");
+            results_3bv[board.info.bbbv as usize] += 1;
+            results_zini[board.info.zini as usize] += 1;
+            board.reset();
+            count += 1;
+        }
+
+          println!("\n\nAfter generating {} boards:", amount);
+          println!("3BV Distribution:");
+          for (i, count) in results_3bv.iter().enumerate() {
+              if *count > 0 {
+                  println!("3BV {}: {}", i, count);
+              }
+          }
+          println!("\nZINI Distribution:");
+          for (i, count) in results_zini.iter().enumerate() {
+              if *count > 0 {
+                  println!("ZINI {}: {}", i, count);
+              }
+          }
+    }
+
 }

@@ -7,3 +7,4 @@ wasm-pack.log
 .github/
 !tests/board_tests.rs
 tests/
+distribution*.csv
