@@ -599,3 +599,8 @@ Have maximum or minimum sizes for things to prevent too large relative size diff
 Try adding high dpi canvas support? Although after refactoring
 
 Also consider renaming stuff to reduce the amount of BoardX. Could even just rename the property on Board, like how we have board.stats instead of board.boardStats
+
+Some bugs:
+improve touch handling on mobile button
+track mouse down events?
+can we fix large board recursive bug?

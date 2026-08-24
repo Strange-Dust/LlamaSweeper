@@ -352,21 +352,34 @@ class BoardImportExport {
   async exportBoardScreenshot(exportOption) {
     const screenshotIncludesStats = exportOption.endsWith("with-stats");
     const screenshotIsCopied = exportOption.startsWith("copy");
-    const blob = await this.getScreenshotBlob(screenshotIncludesStats);
-
-    if (!blob) {
-      Notify.create({
-        message: "Export failed.",
-        color: "negative",
-        timeout: 1500,
-      });
-      return;
-    }
 
     if (screenshotIsCopied) {
+      if (
+        typeof ClipboardItem === "undefined" ||
+        !navigator.clipboard?.write
+      ) {
+        Notify.create({
+          message:
+            "Copying images is not supported in this browser. Try the download option instead.",
+          color: "negative",
+          timeout: 3000,
+        });
+        return;
+      }
+
+      const blobPromise = this.getScreenshotBlob(screenshotIncludesStats).then(
+        (blob) => {
+          if (!blob) {
+            throw new Error("Screenshot generation failed");
+          }
+          return blob;
+        }
+      );
+
       try {
+        //Pass the unawaited promise so clipboard.write runs while user activation is still live (Safari/Firefox reject it otherwise)
         await navigator.clipboard.write([
-          new ClipboardItem({ "image/png": blob }),
+          new ClipboardItem({ "image/png": blobPromise }),
         ]);
         Notify.create({ message: "Copied.", color: "purple", timeout: 700 });
       } catch (e) {
@@ -377,6 +390,17 @@ class BoardImportExport {
         });
       }
     } else {
+      const blob = await this.getScreenshotBlob(screenshotIncludesStats);
+
+      if (!blob) {
+        Notify.create({
+          message: "Export failed.",
+          color: "negative",
+          timeout: 1500,
+        });
+        return;
+      }
+
       const now = new Date();
 
       //Get current time. Then convert to desired format, hacky way is with ISOString
@@ -390,15 +414,29 @@ class BoardImportExport {
 
       const fileName = `screenshot_${this.board.width}x${this.board.height}_${this.board.mineCount}-${exportTimestamp}.png`;
 
-      const status = exportFile(fileName, blob, "image/png");
+      //exportFile must run inside a fresh tap, otherwise iOS Safari silently ignores the download after the async render
+      Dialog.create({
+        title: "Screenshot Ready",
+        message: "Download the screenshot?",
+        cancel: true,
+        persistent: true,
+      }).onOk(() => {
+        const status = exportFile(fileName, blob, "image/png");
 
-      if (status !== true) {
-        Notify.create({
-          message: "Download failed.",
-          color: "negative",
-          timeout: 1500,
-        });
-      }
+        if (status === true) {
+          Notify.create({
+            message: "Downloaded.",
+            color: "purple",
+            timeout: 700,
+          });
+        } else {
+          Notify.create({
+            message: "Download failed.",
+            color: "negative",
+            timeout: 1500,
+          });
+        }
+      });
     }
   }
 
