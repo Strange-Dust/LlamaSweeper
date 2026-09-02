@@ -604,3 +604,5 @@ Some bugs:
 improve touch handling on mobile button
 track mouse down events?
 can we fix large board recursive bug?
+
+Copy/download still fail on mobile. Also note that copyToClipboard fails for mbf export

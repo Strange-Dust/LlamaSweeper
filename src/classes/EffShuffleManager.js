@@ -474,7 +474,7 @@ class EffShuffleManager {
     if (boardKey.startsWith("16-16-40-")) {
       return;
     }
-    if (boardKey.startsWith("16-16-40-")) {
+    if (boardKey.startsWith("30-16-99-") || boardKey.startsWith("16-30-99-")) {
       return;
     }
 
