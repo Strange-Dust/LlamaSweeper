@@ -321,7 +321,7 @@ class BoardActions {
       return; //ignore squares outside board
     }
 
-    //Opens a square, possibly triggering an opening recursively
+    //Opens a square, possibly triggering an opening to be expanded
     if (this.board.tilesArray[x][y].state !== CONSTANTS.UNREVEALED) {
       return;
     }
@@ -353,18 +353,18 @@ class BoardActions {
       }
       this.board.openedTiles++;
 
+      if (this.board.gameStage === "running") {
+        this.board.boardHint.lastSquaresChangedForAutoHint.push({ x, y });
+      }
+
+      //Expand an opening if this is a zero tile
       if (number === 0) {
         if (this.board.variant === "mean openings") {
           this.board.meanOpenings.unprocessedMeanZeros.push({ x, y });
         }
-        // this.chord(x, y, false);
         if (!deferZeroExpansion) {
           this.openZeroArea(x, y);
         }
-      }
-
-      if (this.board.gameStage === "running") {
-        this.board.boardHint.lastSquaresChangedForAutoHint.push({ x, y });
       }
     }
 
@@ -375,6 +375,8 @@ class BoardActions {
   }
 
   openZeroArea(startX, startY) {
+    //Iterative method to expand openings in order to prevent stack overflow bug that occurred when doing recursively
+
     const width = this.board.tilesArray.length;
     const height = this.board.tilesArray[0].length;
 
@@ -399,19 +401,13 @@ class BoardActions {
           const tile = this.board.tilesArray[i][j];
 
           if (tile.state === CONSTANTS.FLAG) {
+            //Openings annihilate neighbouring flags
             tile.state = CONSTANTS.UNREVEALED;
             this.board.unflagged++;
           }
 
-          const isChordableMeanMine =
-            this.board.variant === "mean openings" &&
-            meanMineClickBehaviour.value === "chordable" &&
-            this.board.meanOpenings.meanMineStates[i][j].isMine &&
-            this.board.meanOpenings.meanMineStates[i][j].isActive;
-
           if (
-            tile.state === CONSTANTS.UNREVEALED &&
-            !isChordableMeanMine
+            tile.state === CONSTANTS.UNREVEALED
           ) {
             // Prevent openTile() from recursively starting another zero expansion.
             this.openTile(i, j, false, true);
@@ -467,8 +463,7 @@ class BoardActions {
             isChordedTileZero &&
             this.board.tilesArray[i][j].state === CONSTANTS.FLAG
           ) {
-            //Openings will open everything around them and annihilate neighbouring flags.
-            //Note that because we change the state to CONSTANTS.UNREVEALED, it then gets opened by follow if statement
+            //Note that this code path won't ever be hit in normal scenarios, because we use the openZeroArea method to expand zeros which handles annihilating flags and everything
             this.board.tilesArray[i][j].state = CONSTANTS.UNREVEALED;
             this.board.unflagged++;
           }
