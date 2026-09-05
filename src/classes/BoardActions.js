@@ -316,12 +316,12 @@ class BoardActions {
     }
   }
 
-  openTile(x, y, hasSoundEffect = false) {
+  openTile(x, y, hasSoundEffect = false, deferZeroExpansion = false) {
     if (!this.board.checkCoordsInBounds(x, y)) {
       return; //ignore squares outside board
     }
 
-    //Opens a square, possibly triggering an opening recursively
+    //Opens a square, possibly triggering an opening to be expanded
     if (this.board.tilesArray[x][y].state !== CONSTANTS.UNREVEALED) {
       return;
     }
@@ -353,21 +353,71 @@ class BoardActions {
       }
       this.board.openedTiles++;
 
+      if (this.board.gameStage === "running") {
+        this.board.boardHint.lastSquaresChangedForAutoHint.push({ x, y });
+      }
+
+      //Expand an opening if this is a zero tile
       if (number === 0) {
         if (this.board.variant === "mean openings") {
           this.board.meanOpenings.unprocessedMeanZeros.push({ x, y });
         }
-        this.chord(x, y, false);
-      }
-
-      if (this.board.gameStage === "running") {
-        this.board.boardHint.lastSquaresChangedForAutoHint.push({ x, y });
+        if (!deferZeroExpansion) {
+          this.openZeroArea(x, y);
+        }
       }
     }
 
     if (this.board.boardHint.hintActive) {
       const suppressDraw = true;
       this.board.boardHint.hideHint(suppressDraw);
+    }
+  }
+
+  openZeroArea(startX, startY) {
+    //Iterative method to expand openings in order to prevent stack overflow bug that occurred when doing recursively
+
+    const width = this.board.tilesArray.length;
+    const height = this.board.tilesArray[0].length;
+
+    const queue = [startX * height + startY];
+    let head = 0;
+
+    while (head < queue.length) {
+      const index = queue[head++];
+      const x = Math.floor(index / height);
+      const y = index % height;
+
+      for (let i = x - 1; i <= x + 1; i++) {
+        if (i < 0 || i >= width) {
+          continue;
+        }
+
+        for (let j = y - 1; j <= y + 1; j++) {
+          if (j < 0 || j >= height || (i === x && j === y)) {
+            continue;
+          }
+
+          const tile = this.board.tilesArray[i][j];
+
+          if (tile.state === CONSTANTS.FLAG) {
+            //Openings annihilate neighbouring flags
+            tile.state = CONSTANTS.UNREVEALED;
+            this.board.unflagged++;
+          }
+
+          if (
+            tile.state === CONSTANTS.UNREVEALED
+          ) {
+            // Prevent openTile() from recursively starting another zero expansion.
+            this.openTile(i, j, false, true);
+
+            if (this.board.tilesArray[i][j].state === 0) {
+              queue.push(i * height + j);
+            }
+          }
+        }
+      }
     }
   }
 
@@ -413,8 +463,7 @@ class BoardActions {
             isChordedTileZero &&
             this.board.tilesArray[i][j].state === CONSTANTS.FLAG
           ) {
-            //Openings will open everything around them and annihilate neighbouring flags.
-            //Note that because we change the state to CONSTANTS.UNREVEALED, it then gets opened by follow if statement
+            //Note that this code path won't ever be hit in normal scenarios, because we use the openZeroArea method to expand zeros which handles annihilating flags and everything
             this.board.tilesArray[i][j].state = CONSTANTS.UNREVEALED;
             this.board.unflagged++;
           }
