@@ -708,7 +708,6 @@ class Algorithms {
           this.floodOpeningForProcessing(
             x,
             y,
-            mines,
             openingLabels,
             numbersArray,
             preprocessedOpenings,
@@ -728,20 +727,17 @@ class Algorithms {
   static floodOpeningForProcessing(
     x,
     y,
-    mines,
     openingLabels,
     numbersArray,
     preprocessedOpenings,
     newLabel
   ) {
     if (openingLabels[x]?.[y] === undefined) {
-      //Square outside board
-      return;
+      throw new Error("Square is outside the board");
     }
 
-    if (openingLabels[x][y] === newLabel) {
-      //Square has already been included in this opening
-      return;
+    if (openingLabels[x][y] !== 0) {
+      throw new Error("Square has already been labelled");
     }
 
     const queueX = [x];
@@ -791,7 +787,6 @@ class Algorithms {
         y: currentY,
       });
 
-      // Preserve the same eight-neighbour connectivity.
       queueX.push(
         currentX - 1,
         currentX - 1,
