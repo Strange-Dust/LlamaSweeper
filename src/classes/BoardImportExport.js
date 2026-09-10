@@ -477,7 +477,12 @@ class BoardImportExport {
 
       let sidePanelCanvas;
       try {
-        sidePanelCanvas = await toCanvas(element);
+        try {
+          sidePanelCanvas = await toCanvas(element);
+        } catch (err) {
+          //Try again with skipping fonts to fix firefox issue
+          sidePanelCanvas = await toCanvas(element, { skipFonts: true });
+        }
       } finally {
         element.classList.remove("screenshot-active");
       }

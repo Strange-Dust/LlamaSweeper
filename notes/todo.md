@@ -603,3 +603,5 @@ Also consider renaming stuff to reduce the amount of BoardX. Could even just ren
 Some bugs:
 improve touch handling on mobile button
 track mouse down events?
+
+firefox 140 fails to copy/download for stats panel
