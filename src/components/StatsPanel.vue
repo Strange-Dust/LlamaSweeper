@@ -90,6 +90,7 @@
           name="bar_chart"
           @mouseenter="showStatsClicksTable = true"
           @mouseleave="showStatsClicksTable = false"
+          class="screenshot-hidden"
         >
           <q-menu
             anchor="top middle"

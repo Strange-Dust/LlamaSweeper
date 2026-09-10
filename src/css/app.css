@@ -61,6 +61,10 @@ body:not(.body--dark) {
   display: none !important;
 }
 
+.screenshot-active .q-select__dropdown-icon {
+  display: none !important;
+}
+
 .centre-interface .flex-centreable {
   justify-content: center !important;
 }
