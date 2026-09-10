@@ -441,9 +441,24 @@ class BoardImportExport {
   }
 
   async getScreenshotBlob(includeStats) {
+    //Create a new canvas and draw the main canvas onto it with CSS filters applied. This ensures that the exported image includes the visual effects from CSS.
+    //This is required because html-to-image doesn't work for canvases on safari
+    const pixelRatio = window.devicePixelRatio || 1;
+    const canvasWithFilters = document.createElement("canvas");
+    canvasWithFilters.width = this.board.mainCanvas.value.width * pixelRatio;
+    canvasWithFilters.height = this.board.mainCanvas.value.height * pixelRatio;
+    const ctxWithFilters = canvasWithFilters.getContext("2d");
+    if ("filter" in ctxWithFilters) {
+      ctxWithFilters.filter = getComputedStyle(this.board.mainCanvas.value).filter;
+    }
+    ctxWithFilters.drawImage(this.board.mainCanvas.value, 0, 0, canvasWithFilters.width, canvasWithFilters.height);
+
     //Easy case, only copy the board. Early return
     if (!includeStats) {
-      const blob = await toBlob(this.board.mainCanvas.value); //Using html-to-image here as this.board.mainCanvas.value.toBlob() would miss css filters applied to canvas.
+      //const blob = await toBlob(this.board.mainCanvas.value); //Using html-to-image here as this.board.mainCanvas.value.toBlob() would miss css filters applied to canvas.
+      const blob = await new Promise((resolve) => {
+        canvasWithFilters.toBlob(resolve, "image/png");
+      });
 
       return blob;
     } else {
@@ -467,7 +482,8 @@ class BoardImportExport {
         element.classList.remove("screenshot-active");
       }
 
-      const boardCanvas = await toCanvas(this.board.mainCanvas.value); //Using html-to-image here as this.board.mainCanvas.value would miss css filters applied to canvas.
+      //const boardCanvas = await toCanvas(this.board.mainCanvas.value); //Using html-to-image here as this.board.mainCanvas.value would miss css filters applied to canvas.
+      const boardCanvas = canvasWithFilters
 
       const gap = 15; //Gap between main canvas and side panel
       const padding = 15; //Padding around the whole image
