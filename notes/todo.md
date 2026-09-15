@@ -605,3 +605,9 @@ improve touch handling on mobile button
 track mouse down events?
 
 firefox 140 fails to copy/download for stats panel
+
+ideas for mobile button improvement -
+[done] disable reset briefly after blast (0.5s)
+option to allow touch events (click or regularly touch event)
+look at how touch event support interacts with regular touch handling?
+Do we trigger on touch down/touch up? Would touch preventing cause issues? Probably?

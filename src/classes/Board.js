@@ -123,6 +123,7 @@ class Board {
 
     flagToggleShowReset.value = false;
     flagToggleActive.value = false;
+    this.boardActions.temporarilyDisableMobileResetButton = false;
 
     //Perhaps slightly confusing - for editable boards, set this.mines to refer to either the board editor or zini explorer.
     //This way it gets saved when we switch variants
@@ -665,7 +666,9 @@ class Board {
 
   toggleFlagButton() {
     if (flagToggleShowReset.value) {
-      this.resetBoard(false);
+      if (!this.boardActions.temporarilyDisableMobileResetButton) {
+        this.resetBoard(false);
+      }
     } else {
       flagToggleActive.value = !flagToggleActive.value;
     }

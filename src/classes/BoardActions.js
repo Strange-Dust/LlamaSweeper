@@ -5,6 +5,8 @@ import {
   statsRunDeepChain,
   chordingButtons,
   flagToggleShowReset,
+  flagToggleLocationClass,
+  mobileResetGuard,
   mobileModeEnabled,
   mobileScrollSetting,
   mobileDelayForEnableScroll,
@@ -15,6 +17,8 @@ import {
 class BoardActions {
   constructor(board) {
     this.board = board;
+
+    this.temporarilyDisableMobileResetButton = false;
   }
 
   attemptFlag(
@@ -570,7 +574,7 @@ class BoardActions {
     ) {
       this.board.stats.lateCalcDeepChainZini();
     }
-    flagToggleShowReset.value = true;
+    this.flagToggleShowReset();
     this.board.boardHint.showAutoHintIfNeeded();
   }
 
@@ -622,7 +626,7 @@ class BoardActions {
     ) {
       this.board.stats.lateCalcDeepChainZini();
     }
-    flagToggleShowReset.value = true;
+    this.flagToggleShowReset();
   }
 
   markRemainingFlags() {
@@ -651,6 +655,21 @@ class BoardActions {
       return true;
     } else {
       return false;
+    }
+  }
+
+  flagToggleShowReset() {
+    flagToggleShowReset.value = true;
+
+    if (flagToggleLocationClass.value === 'toggle-hidden-reset' && mobileResetGuard.value) {
+      this.temporarilyDisableMobileResetButton = true;
+      //Note that there is a possible bug where the user could
+      //reset (with face) and blast within 0.5s, and then the timeout
+      //would apply for a different game than intended.
+      //We won't fix as this won't be an issue in practise.
+      setTimeout(() => {
+        this.temporarilyDisableMobileResetButton = false;
+      }, 500);
     }
   }
 }

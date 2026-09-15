@@ -413,6 +413,14 @@
                 stack-label
                 label="Mode toggle location"
               />
+              <template
+                v-if="flagToggleLocationClass === 'toggle-hidden-reset'"
+              >
+                <q-checkbox
+                  v-model="mobileResetGuard"
+                  label="Prevent accidental mobile reset (0.5s)"
+                /><br />
+              </template>
               <q-select
                 class="q-mx-md q-mb-md"
                 outlined
@@ -753,6 +761,7 @@ import {
   flagToggleLocationClass,
   flagToggleSizeClass,
   flagToggleSwitchAfterStart,
+  mobileResetGuard,
   mobileModeEnabled,
   mobileScrollSetting,
   mobileEnclosedScrollLetThrough,
