@@ -418,7 +418,7 @@
               >
                 <q-checkbox
                   v-model="mobileResetGuard"
-                  label="Prevent accidental mobile reset (0.5s)"
+                  label="Prevent accidental mobile reset"
                 /><br />
               </template>
               <q-select
@@ -432,6 +432,10 @@
                 style="width: 175px; flex-shrink: 0"
                 :options="[
                   {
+                    label: 'Small',
+                    value: 'toggle-small',
+                  },
+                  {
                     label: 'Normal',
                     value: 'toggle-normal',
                   },
@@ -440,8 +444,8 @@
                     value: 'toggle-large',
                   },
                   {
-                    label: 'Small',
-                    value: 'toggle-small',
+                    label: 'Extra Large',
+                    value: 'toggle-xl',
                   },
                 ]"
                 emit-value
@@ -504,6 +508,34 @@
                 map-options
                 stack-label
                 label="[advanced] Touch action override"
+              />
+              <q-select
+                class="q-mx-md q-mb-md"
+                outlined
+                options-dense
+                dense
+                transition-duration="100"
+                input-debounce="0"
+                v-model="flagToggleEvent"
+                style="width: 220px; flex-shrink: 0"
+                :options="[
+                  {
+                    label: 'Click (recommended)',
+                    value: 'click',
+                  },
+                  {
+                    label: 'Touch Start',
+                    value: 'touch start',
+                  },
+                  {
+                    label: 'Touch End',
+                    value: 'touch end',
+                  },
+                ]"
+                emit-value
+                map-options
+                stack-label
+                label="[advanced] Mode toggle event"
               />
             </template>
             <q-checkbox
@@ -762,6 +794,7 @@ import {
   flagToggleSizeClass,
   flagToggleSwitchAfterStart,
   mobileResetGuard,
+  flagToggleEvent,
   mobileModeEnabled,
   mobileScrollSetting,
   mobileEnclosedScrollLetThrough,

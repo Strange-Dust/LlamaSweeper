@@ -1,5 +1,6 @@
 <template>
   <div
+    ref="flagToggle"
     :class="[
       {
         'flag-toggle': true,
@@ -9,7 +10,9 @@
       flagToggleLocationClass,
       flagToggleSizeClass,
     ]"
-    @click.prevent="game.board.toggleFlagButton()"
+    @click="toggleFlagButtonFromClick($event)"
+    @touchstart="toggleFlagButtonFromTouchStart($event)"
+    @touchend="toggleFlagButtonFromTouchEnd($event)"
   >
     <q-icon
       name="flag"
@@ -82,6 +85,14 @@ body.body--dark .flag-active {
   bottom: -1px;
 }
 
+.flag-toggle.toggle-small {
+  width: 50px;
+  height: 50px;
+}
+.flag-toggle-icon.toggle-small {
+  font-size: 2em;
+}
+
 .flag-toggle.toggle-normal {
   width: 80px;
   height: 80px;
@@ -98,12 +109,12 @@ body.body--dark .flag-active {
   font-size: 4.5em;
 }
 
-.flag-toggle.toggle-small {
-  width: 50px;
-  height: 50px;
+.flag-toggle.toggle-xl {
+  width: 160px;
+  height: 160px;
 }
-.flag-toggle-icon.toggle-small {
-  font-size: 2em;
+.flag-toggle-icon.toggle-xl {
+  font-size: 6em;
 }
 
 .flag-toggle-icon {
@@ -121,12 +132,45 @@ import {
   flagToggleShowReset,
   flagToggleLocationClass,
   flagToggleSizeClass,
+  flagToggleEvent,
 } from "src/composables/useSettings";
 
 defineOptions({
   name: "MobileFlagButton",
 });
 
-import { inject } from "vue";
+import { inject, ref } from "vue";
 const game = inject("game");
+const flagToggle = ref(null);
+
+function toggleFlagButtonFromClick(e) {
+  if (flagToggleEvent.value === "click") {
+    game.board.toggleFlagButton();
+  }
+}
+
+function toggleFlagButtonFromTouchStart(e) {
+  if (flagToggleEvent.value === "touch start") {
+    game.board.toggleFlagButton();
+  }
+}
+
+function toggleFlagButtonFromTouchEnd(e) {
+  if (flagToggleEvent.value !== "touch end") {
+    return;
+  }
+
+  const touch = e.changedTouches[0];
+  const bounds = flagToggle.value.getBoundingClientRect();
+
+  const endedOnButton =
+    touch.clientX >= bounds.left &&
+    touch.clientX <= bounds.right &&
+    touch.clientY >= bounds.top &&
+    touch.clientY <= bounds.bottom;
+
+  if (endedOnButton) {
+    game.board.toggleFlagButton();
+  }
+}
 </script>

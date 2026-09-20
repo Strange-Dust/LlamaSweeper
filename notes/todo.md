@@ -601,13 +601,14 @@ Try adding high dpi canvas support? Although after refactoring
 Also consider renaming stuff to reduce the amount of BoardX. Could even just rename the property on Board, like how we have board.stats instead of board.boardStats
 
 Some bugs:
-improve touch handling on mobile button
 track mouse down events?
-
-firefox 140 fails to copy/download for stats panel
 
 ideas for mobile button improvement -
 [done] disable reset briefly after blast (0.5s)
-option to allow touch events (click or regularly touch event)
-look at how touch event support interacts with regular touch handling?
-Do we trigger on touch down/touch up? Would touch preventing cause issues? Probably?
+[done] option to allow touch events (click or regularly touch event)
+
+For the mobile mode toggle reset guard thingy - should we change the icon whilst it's not pressable?
+
+Very minor bug - watching replay with "touch reveal timing = touch start" causes scrolls on board to jump the replay (cos it always interprets as a click)
+
+Next is probably just improving board editor

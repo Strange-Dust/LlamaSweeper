@@ -344,7 +344,11 @@ let flagToggleSwitchAfterStart = useLocalStorage(
   "ls_flagToggleSwitchAfterStart",
   false
 );
-let mobileResetGuard = useLocalStorage( //0.5s delay before the reset button works
+let flagToggleEvent = useLocalStorage(
+  "ls_flagToggleEvent",
+  "click"
+);
+let mobileResetGuard = useLocalStorage( //delay before the reset button works
   "ls_mobileResetGuard",
   true
 );
@@ -686,6 +690,7 @@ export {
   flagToggleSizeClass,
   flagToggleSwitchAfterStart,
   mobileResetGuard,
+  flagToggleEvent,
   mobileModeEnabled,
   mobileScrollSetting,
   mobileEnclosedScrollLetThrough,

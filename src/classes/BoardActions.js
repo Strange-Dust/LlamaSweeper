@@ -574,7 +574,8 @@ class BoardActions {
     ) {
       this.board.stats.lateCalcDeepChainZini();
     }
-    this.flagToggleShowReset();
+    const progressOver75Percent = this.board.stats.solved3bv / this.board.stats.bbbv >= 0.75;
+    this.flagToggleShowReset(progressOver75Percent ? 400 : 300);
     this.board.boardHint.showAutoHintIfNeeded();
   }
 
@@ -626,7 +627,7 @@ class BoardActions {
     ) {
       this.board.stats.lateCalcDeepChainZini();
     }
-    this.flagToggleShowReset();
+    this.flagToggleShowReset(500);
   }
 
   markRemainingFlags() {
@@ -658,7 +659,7 @@ class BoardActions {
     }
   }
 
-  flagToggleShowReset() {
+  flagToggleShowReset(delay = 500) {
     flagToggleShowReset.value = true;
 
     if (flagToggleLocationClass.value === 'toggle-hidden-reset' && mobileResetGuard.value) {
@@ -669,7 +670,7 @@ class BoardActions {
       //We won't fix as this won't be an issue in practise.
       setTimeout(() => {
         this.temporarilyDisableMobileResetButton = false;
-      }, 500);
+      }, delay);
     }
   }
 }
