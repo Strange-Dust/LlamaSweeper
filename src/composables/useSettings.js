@@ -373,6 +373,10 @@ let mobileDelayForEnableScroll = useLocalStorage(
 ); //Delay on zero/interior settings after squares get revealed before scroll is enabled. Meant to stop accidental scrolls from revealing surprise openings.
 let touchRevealLocation = useLocalStorage("ls_touchRevealLocation", "start"); //Whether we use the location of the touch at the start of it or the end of it
 let touchRevealTiming = useLocalStorage("ls_touchRevealTiming", "end"); //Does it reveal the tile on finger up or finger down
+let touchStartTimingOnlyActiveGames = useLocalStorage(
+  "ls_touchStartTimingOnlyActiveGames",
+  true
+); //If this is set along with touchRevealTiming === 'start', then the "start" timing will only apply during live games (as otherwise this disrupts scrolling)
 let touchLongPressTime = useLocalStorage("ls_touchLongPressTime", 250); //When does long press = flag (or dig) get triggered
 let touchLongPressDisabled = useLocalStorage(
   "ls_touchLongPressDisabled",
@@ -698,6 +702,7 @@ export {
   mobileDelayForEnableScroll,
   touchRevealLocation,
   touchRevealTiming,
+  touchStartTimingOnlyActiveGames,
   touchLongPressTime,
   touchLongPressDisabled,
   touchMaxTime,

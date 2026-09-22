@@ -580,6 +580,7 @@ laymine_solvable_adjust can't be used because the boards it creates are unintere
 =====
 
 Small bug - mobile ms sometimes causes tiles to remain depressed if tapped at the same time (e.g. corners at the start)
+naive theory - if multiple touches are being processed at once and one touch has already been cancelled (thus removed from ongoingTouches) then maybe trying to retrieve it from ongoingTouches returns null and then doing touch.identifier throws and error which means the rest of the loop doesn't run?
 
 Small enhancements to the board editor?
 Strict mode might be too far away.
@@ -608,7 +609,5 @@ ideas for mobile button improvement -
 [done] option to allow touch events (click or regularly touch event)
 
 For the mobile mode toggle reset guard thingy - should we change the icon whilst it's not pressable?
-
-Very minor bug - watching replay with "touch reveal timing = touch start" causes scrolls on board to jump the replay (cos it always interprets as a click)
 
 Next is probably just improving board editor

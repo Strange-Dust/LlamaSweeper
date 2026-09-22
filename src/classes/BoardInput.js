@@ -15,6 +15,7 @@ import {
   mobileDelayForEnableScroll,
   touchRevealLocation,
   touchRevealTiming,
+  touchStartTimingOnlyActiveGames,
   touchLongPressTime,
   touchLongPressDisabled,
   touchMaxTime,
@@ -186,6 +187,8 @@ class BoardInput {
       shouldPreventDefault = true;
     }
 
+    const isUsingTouchStartTiming = touchRevealTiming.value === "start" && (!touchStartTimingOnlyActiveGames.value || this.board.gameStage === "running");
+
     for (let touch of touches) {
       const canvasCoords = this.eventToCanvasCoord(touch);
       const flooredCoords = this.eventToFlooredTileCoords(touch);
@@ -248,14 +251,14 @@ class BoardInput {
 
       let isDown;
 
-      if (touchRevealTiming.value === "end") {
-        isDown = true; //Normally the first touch is down, and the release is up (like mousedown/mouseup except for touches)
-      } else if (touchRevealTiming.value === "start") {
-        //This is very hacky
+      if (isUsingTouchStartTiming) {
+        //This is the very hacky case
         isDown = false;
         //If we are timing it to reveal the square when the finger first makes contact
         //then we fake it by sending an "up" input immediately
         //Later on we deactivate the touch, so it doesn't get processed for a second time
+      } else {
+        isDown = true; //Normally the first touch is down, and the release is up (like mousedown/mouseup except for touches)
       }
 
       const touchIdentifier = touch.identifier;
@@ -289,7 +292,7 @@ class BoardInput {
         touchIdentifier
       );
 
-      if (touchRevealTiming.value === "start") {
+      if (isUsingTouchStartTiming) {
         //Since we already processed the touch on the start, we deactivate so it doesn't get processed again
         this.ongoingTouches.get(touchIdentifier).active = false;
       }

@@ -575,7 +575,7 @@ class BoardActions {
       this.board.stats.lateCalcDeepChainZini();
     }
     const progressOver75Percent = this.board.stats.solved3bv / this.board.stats.bbbv >= 0.75;
-    this.flagToggleShowReset(progressOver75Percent ? 400 : 300);
+    this.flagToggleShowReset(progressOver75Percent ? 350 : 250);
     this.board.boardHint.showAutoHintIfNeeded();
   }
 
@@ -627,7 +627,7 @@ class BoardActions {
     ) {
       this.board.stats.lateCalcDeepChainZini();
     }
-    this.flagToggleShowReset(500);
+    this.flagToggleShowReset(450);
   }
 
   markRemainingFlags() {

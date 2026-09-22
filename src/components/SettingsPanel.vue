@@ -346,6 +346,11 @@
                 stack-label
                 label="Touch Reveal Timing"
               ></q-select>
+              <q-checkbox
+                v-if="touchRevealTiming === 'start'"
+                v-model="touchStartTimingOnlyActiveGames"
+                label='Restrict "Start of touch" timing to active games'
+              />
               <q-input
                 debounce="100"
                 v-model.number="touchLongPressTime"
@@ -801,6 +806,7 @@ import {
   mobileDelayForEnableScroll,
   touchRevealLocation,
   touchRevealTiming,
+  touchStartTimingOnlyActiveGames,
   touchLongPressTime,
   touchLongPressDisabled,
   touchMaxTime,
