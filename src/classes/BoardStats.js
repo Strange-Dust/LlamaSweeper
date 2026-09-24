@@ -16,6 +16,8 @@ class BoardStats {
     this.mines = structuredClone(minesArray);
     this.clicks = [];
     this.moves = []; //Mouse movements, use separate array as this can get quite large
+    this.buttonEvents = []; //Raw mouse/keyboard button presses and releases, used for RawVF export
+    this.buttonsDown = { left: false, right: false };
     this.isWin = null;
     this.attributes = {
       //Other data that we should track related to the game
@@ -95,6 +97,16 @@ class BoardStats {
       yRaw,
       time,
     });
+  }
+
+  addButtonEvent(button, isDown, xRaw, yRaw, time) {
+    //Synthesize the missing transition (e.g. first click press in pregame, or release outside canvas) so presses and releases stay paired
+    if (this.buttonsDown[button] === isDown) {
+      this.buttonEvents.push({ button, isDown: !isDown, xRaw, yRaw, time });
+    }
+
+    this.buttonEvents.push({ button, isDown, xRaw, yRaw, time });
+    this.buttonsDown[button] = isDown;
   }
 
   addMouseMove(xRaw, yRaw, time) {

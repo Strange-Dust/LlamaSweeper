@@ -1012,6 +1012,21 @@ class BoardInput {
       }
     }
 
+    //Must stay after first-click handling (so the first release is recorded) and before win/loss checks
+    if (
+      touchIdentifier === "mouse" &&
+      this.board.gameStage === "running" &&
+      (isDigInput || isFlagInput)
+    ) {
+      this.board.stats.addButtonEvent(
+        isDigInput ? "left" : "right",
+        isDown,
+        unflooredCoords.tileX,
+        unflooredCoords.tileY,
+        this.board.getTime()
+      );
+    }
+
     let needToCheckForWinOrLoss = false;
 
     //Try to chord or open square with left click (e.g. mouse left click)

@@ -58,7 +58,11 @@ class RawVF {
     let clicksIndex = 0;
     let movesIndex = 0;
 
-    const clicks = boardStats.clicks;
+    //Touch games have no raw button events, so fall back to paired clicks
+    const useButtonEvents = boardStats.buttonEvents.length > 0;
+    const clicks = useButtonEvents
+      ? boardStats.buttonEvents
+      : boardStats.clicks;
     const moves = boardStats.moves;
 
     //Since llamasweeper tracks clicks and moves separately we iterate through both together taking the earlier timestamped event from each
@@ -87,12 +91,14 @@ class RawVF {
 
       if (clickNext) {
         //Take the current click and increment
-        events += this.getMouseClickEventLine(
-          maybeClick,
-          boardWidth,
-          boardHeight,
-          isSuperClick
-        );
+        events += useButtonEvents
+          ? this.getButtonEventLine(maybeClick)
+          : this.getMouseClickEventLine(
+              maybeClick,
+              boardWidth,
+              boardHeight,
+              isSuperClick
+            );
         clicksIndex++;
       } else {
         events += this.getMouseMoveEventLine(
@@ -218,12 +224,12 @@ class RawVF {
     <mouse_event> ::= <elapsed_time> <mouse_event_id> [column] [row] (<coord_x> <coord_y>) [(<mouse_state>)]\n
     <elapsed_time> ::= <second>.<hundredth> | <second>.<thousandth> | -<second>.<hundredth> | -<second>.<thousandth>
     <mouse_event_id> ::= <left_click> | <left_release> | <right_click> | <right_release> | <middle_click> | <middle_release> | <mouse_move> | <left_click_with_shift> | <toggle_question_mark_setting>
-    <left_click> ::= lc 
-    <left_release> ::= lr 
-    <right_click> ::= rc 
-    <right_release> ::= rr 
-    <middle_click> ::= mc 
-    <middle_release> ::= mr 
+    <left_click> ::= lc
+    <left_release> ::= lr
+    <right_click> ::= rc
+    <right_release> ::= rr
+    <middle_click> ::= mc
+    <middle_release> ::= mr
     <mouse_move> ::= mv
     <left_click_with_shift> ::= sc
     <toggle_question_mark_setting> ::= mt
@@ -270,6 +276,28 @@ class RawVF {
     event += `${elapsedTime} ${eventId[1]} ${col} ${row} (${coordX} ${coordY})\n`;
 
     return event;
+  }
+
+  static getButtonEventLine(buttonEvent) {
+    const typeMap = {
+      left: ["lc", "lr"],
+      right: ["rc", "rr"],
+    };
+
+    if (!typeMap.hasOwnProperty(buttonEvent.button)) {
+      throw new Error("Unexpected button");
+    }
+
+    const eventId = typeMap[buttonEvent.button][buttonEvent.isDown ? 0 : 1];
+    const elapsedTime = buttonEvent.time.toFixed(3);
+
+    //Deliberately unclamped so off-board presses/releases aren't mistaken for edge tile clicks
+    const col = Math.floor(buttonEvent.xRaw);
+    const row = Math.floor(buttonEvent.yRaw);
+    const coordX = Math.floor(buttonEvent.xRaw * RAWVF_SQUARE_SIZE);
+    const coordY = Math.floor(buttonEvent.yRaw * RAWVF_SQUARE_SIZE);
+
+    return `${elapsedTime} ${eventId} ${col} ${row} (${coordX} ${coordY})\n`;
   }
 
   static getMouseMoveEventLine(move, boardWidth, boardHeight) {
