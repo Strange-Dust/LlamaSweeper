@@ -337,6 +337,9 @@ onMounted(() => {
   document.body.addEventListener("keydown", handleKeyDown, true);
   document.body.addEventListener("keyup", handleKeyUp, true);
   window.addEventListener("scroll", handlePageScroll);
+  //Capture phase so components that stop propagation can't hide presses/releases
+  window.addEventListener("mousedown", handleWindowMouseDown, true);
+  window.addEventListener("mouseup", handleWindowMouseUp, true);
   skinManager.addCallbackWhenAllPriorityLoaded(() => {
     game.initialise();
   });
@@ -352,6 +355,8 @@ onUnmounted(() => {
   document.body.removeEventListener("keydown", handleKeyDown, true);
   document.body.removeEventListener("keyup", handleKeyUp, true);
   window.removeEventListener("scroll", handlePageScroll);
+  window.removeEventListener("mousedown", handleWindowMouseDown, true);
+  window.removeEventListener("mouseup", handleWindowMouseUp, true);
   game.unmount();
   effShuffleManager.deactivateBackgroundGeneration();
   statsWorkerManager.softReset();
@@ -431,6 +436,22 @@ function handleKeyUp(event) {
       event.timeStamp
     );
   }
+}
+
+function handleWindowMouseDown(event) {
+  if (!game.board) {
+    return;
+  }
+
+  game.board.boardInput.recordOffCanvasMouseButton(event, true);
+}
+
+function handleWindowMouseUp(event) {
+  if (!game.board) {
+    return;
+  }
+
+  game.board.boardInput.recordOffCanvasMouseButton(event, false);
 }
 
 function checkFocusForKeyPress(event) {

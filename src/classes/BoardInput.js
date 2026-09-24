@@ -735,6 +735,31 @@ class BoardInput {
     }
   }
 
+  recordOffCanvasMouseButton(event, isDown) {
+    //Recording only; off-canvas presses/releases have no game effect. Canvas events are recorded via handlePointerInput
+
+    //Skip clicks that are on the canvas or not relevant for off-canvas recording
+    if (
+      mobileModeEnabled.value ||
+      event.target === this.board.mainCanvas.value ||
+      this.board.gameStage !== "running" ||
+      this.board.quickPaint.quickPaintActive ||
+      (event.button !== 0 && event.button !== 2)
+    ) {
+      return;
+    }
+
+    const unflooredCoords = this.eventToUnflooredTileCoords(event);
+
+    this.board.stats.addButtonEvent(
+      event.button === 0 ? "left" : "right",
+      isDown,
+      unflooredCoords.tileX,
+      unflooredCoords.tileY,
+      this.board.getTime()
+    );
+  }
+
   eventToCanvasCoord(event) {
     //Get coords relative to canvas
     const canvasRawX =
