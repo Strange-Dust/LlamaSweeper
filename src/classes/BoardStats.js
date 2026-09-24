@@ -100,7 +100,7 @@ class BoardStats {
   }
 
   addButtonEvent(button, isDown, xRaw, yRaw, time) {
-    //Synthesize the missing transition (e.g. first click press in pregame, or release outside canvas) so presses and releases stay paired
+    //Synthesize the missing transition (e.g. first click press in pregame) so presses and releases stay paired
     if (this.buttonsDown[button] === isDown) {
       this.buttonEvents.push({ button, isDown: !isDown, xRaw, yRaw, time });
     }
