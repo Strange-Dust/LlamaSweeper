@@ -5,31 +5,33 @@ const RAWVF_SQUARE_SIZE = 64; //Keep this high to make things smoother even thou
 
 class RawVF {
   constructor() {
-    throw new Error('RawVF class only has static methods, and cannot be instantiated')
+    throw new Error(
+      "RawVF class only has static methods, and cannot be instantiated"
+    );
   }
 
   static createRawVfText(boardStats) {
     const boardWidth = boardStats.mines.length;
-    const boardHeight = boardStats.mines[0].length
+    const boardHeight = boardStats.mines[0].length;
 
     const isSuperClick = boardStats.attributes.superClick;
 
     let rawVfText = "";
 
     let description = "";
-    description += "RawVF_Version: Rev6.2\n"
-    description += "Program: LlamaSweeper\n"
+    description += "RawVF_Version: Rev6.2\n";
+    description += "Program: LlamaSweeper\n";
     //description += "Player: Anon\n"
     //description += "Timestamp: 2026-02-24T01:13:18.825Z\n"
-    description += `Level: ${this.getLevelFromSize(boardStats)}\n`
-    description += `Width: ${boardWidth}\n`
-    description += `Height: ${boardHeight}\n`
-    description += "Marks: Off\n"
-    description += `SuperClick: ${isSuperClick ? "On" : "Off"}\n`
-    description += `SquareSize: ${RAWVF_SQUARE_SIZE}\n` //May differ from real square size
-    description += `Time: ${boardStats.endTime.toFixed(3)}\n`
-    description += `Status: ${boardStats.isWin ? "won" : "loss"}\n`
-    description += `Mode: ${this.getDescriptionMode(boardStats)}\n`
+    description += `Level: ${this.getLevelFromSize(boardStats)}\n`;
+    description += `Width: ${boardWidth}\n`;
+    description += `Height: ${boardHeight}\n`;
+    description += "Marks: Off\n";
+    description += `SuperClick: ${isSuperClick ? "On" : "Off"}\n`;
+    description += `SquareSize: ${RAWVF_SQUARE_SIZE}\n`; //May differ from real square size
+    description += `Time: ${boardStats.endTime.toFixed(3)}\n`;
+    description += `Status: ${boardStats.isWin ? "won" : "loss"}\n`;
+    description += `Mode: ${this.getDescriptionMode(boardStats)}\n`;
 
     rawVfText += description;
 
@@ -40,9 +42,9 @@ class RawVF {
 
       for (let x = 0; x < boardWidth; x++) {
         if (boardStats.mines[x][y]) {
-          row += "*"
+          row += "*";
         } else {
-          row += "0"
+          row += "0";
         }
       }
 
@@ -65,9 +67,11 @@ class RawVF {
       let maybeClick = clicks[clicksIndex]; //may be undefined
       let maybeMove = moves[movesIndex]; //may be undefined
 
-      if (maybeClick && !maybeClick.hasOwnProperty('time') ||
-        maybeMove && !maybeMove.hasOwnProperty('time')) {
-        throw new Error('click/move data missing time property');
+      if (
+        (maybeClick && !maybeClick.hasOwnProperty("time")) ||
+        (maybeMove && !maybeMove.hasOwnProperty("time"))
+      ) {
+        throw new Error("click/move data missing time property");
       }
 
       let clickNext; //Whether the earliest time stamp is from the next click or next chord
@@ -78,15 +82,24 @@ class RawVF {
       } else if (maybeMove) {
         clickNext = false;
       } else {
-        throw new Error('Should never happen');
+        throw new Error("Should never happen");
       }
 
       if (clickNext) {
         //Take the current click and increment
-        events += this.getMouseClickEventLine(maybeClick, boardWidth, boardHeight, isSuperClick);
+        events += this.getMouseClickEventLine(
+          maybeClick,
+          boardWidth,
+          boardHeight,
+          isSuperClick
+        );
         clicksIndex++;
       } else {
-        events += this.getMouseMoveEventLine(maybeMove, boardWidth, boardHeight);
+        events += this.getMouseMoveEventLine(
+          maybeMove,
+          boardWidth,
+          boardHeight
+        );
         movesIndex++;
       }
     }
@@ -118,28 +131,34 @@ class RawVF {
 
     //Wait for ready signal
     const onMessage = (event) => {
-      if (event.origin !== 'https://strange-dust.github.io') {
-        return
-      };
-
-      if (event.data?.type === 'replay-analyzer-ready') {
-        analyzerWindow.postMessage({
-          type: 'replay-analyzer-load',
-          buffer: replayBuffer,
-          filename: replayFileName
-        }, 'https://strange-dust.github.io')
-        window.removeEventListener('message', onMessage)
+      if (event.origin !== "https://strange-dust.github.io") {
+        return;
       }
-    }
 
-    window.addEventListener('message', onMessage);
+      if (event.data?.type === "replay-analyzer-ready") {
+        analyzerWindow.postMessage(
+          {
+            type: "replay-analyzer-load",
+            buffer: replayBuffer,
+            filename: replayFileName,
+          },
+          "https://strange-dust.github.io"
+        );
+        window.removeEventListener("message", onMessage);
+      }
+    };
+
+    window.addEventListener("message", onMessage);
 
     //Open analyser in a new tab
-    const analyzerWindow = window.open("https://strange-dust.github.io/minesweeper-replay-analyzer/", '_blank')
+    const analyzerWindow = window.open(
+      "https://strange-dust.github.io/minesweeper-replay-analyzer/",
+      "_blank"
+    );
 
     if (!analyzerWindow) {
       //Possibly popup blocked?
-      window.removeEventListener('message', onMessage)
+      window.removeEventListener("message", onMessage);
       return;
     }
   }
@@ -149,11 +168,11 @@ class RawVF {
     let height = boardStats.mines[0].length;
 
     switch (`${width}x${height}`) {
-      case '9x9':
-        return 'Beginner';
-      case '16x16':
+      case "9x9":
+        return "Beginner";
+      case "16x16":
         return "Intermediate";
-      case '30x16':
+      case "30x16":
         return "Expert";
       default:
         return "Custom";
@@ -172,22 +191,22 @@ class RawVF {
     const hintsUsed = boardStats.attributes.hintsUsed;
     const variant = boardStats.attributes.variant;
 
-    let mode = 'Classic';
+    let mode = "Classic";
 
-    if (variant === 'normal') {
-      mode = 'Classic';
+    if (variant === "normal") {
+      mode = "Classic";
       if (noGuess) {
-        mode = 'Classic NG';
+        mode = "Classic NG";
       }
       if (hintsUsed) {
-        mode = 'Cheat (hinted)'; //It's deliberate that this replaces NG as it's a stronger condition
+        mode = "Cheat (hinted)"; //It's deliberate that this replaces NG as it's a stronger condition
       }
-    } else if (variant === 'board editor') {
-      mode = 'Upk';
-    } else if (variant === 'eff boards') {
-      mode = 'Eff Boards';
+    } else if (variant === "board editor") {
+      mode = "Upk";
+    } else if (variant === "eff boards") {
+      mode = "Eff Boards";
       if (hintsUsed) {
-        mode = 'Cheat (hinted)';
+        mode = "Cheat (hinted)";
       }
     }
 
@@ -218,16 +237,16 @@ class RawVF {
 
     //Our click events map to multiple rawVF events because we don't store mouseup/down currently
     const typeMap = {
-      left: ['lc', 'lr'],
-      wasted_left: ['lc', 'lr'],
-      chord: isSuperClick ? ['lc', 'lr'] : ['mc', 'mr'], //Send chords as left click for l-chord and middle for l+r (this preserves properties of each, as we've had bugs before where l+r was sent as left and then blasted on top of mines instead of protecting)
-      wasted_chord: isSuperClick ? ['lc', 'lr'] : ['mc', 'mr'],
-      right: ['rc', 'rr'],
-      wasted_right: ['rc', 'rr']
-    }
+      left: ["lc", "lr"],
+      wasted_left: ["lc", "lr"],
+      chord: isSuperClick ? ["lc", "lr"] : ["mc", "mr"], //Send chords as left click for l-chord and middle for l+r (this preserves properties of each, as we've had bugs before where l+r was sent as left and then blasted on top of mines instead of protecting)
+      wasted_chord: isSuperClick ? ["lc", "lr"] : ["mc", "mr"],
+      right: ["rc", "rr"],
+      wasted_right: ["rc", "rr"],
+    };
 
     if (!typeMap.hasOwnProperty(click.type)) {
-      throw new Error('Unexpected click type');
+      throw new Error("Unexpected click type");
     }
 
     const eventId = typeMap[click.type];
@@ -235,18 +254,26 @@ class RawVF {
     const col = Utils.clamp(click.x, 0, boardWidth - 1);
     const row = Utils.clamp(click.y, 0, boardHeight - 1);
 
-    const coordX = Utils.clamp(Math.floor(click.xRaw * RAWVF_SQUARE_SIZE), 0, boardWidth * RAWVF_SQUARE_SIZE - 1);
-    const coordY = Utils.clamp(Math.floor(click.yRaw * RAWVF_SQUARE_SIZE), 0, boardHeight * RAWVF_SQUARE_SIZE - 1);
+    const coordX = Utils.clamp(
+      Math.floor(click.xRaw * RAWVF_SQUARE_SIZE),
+      0,
+      boardWidth * RAWVF_SQUARE_SIZE - 1
+    );
+    const coordY = Utils.clamp(
+      Math.floor(click.yRaw * RAWVF_SQUARE_SIZE),
+      0,
+      boardHeight * RAWVF_SQUARE_SIZE - 1
+    );
 
     let event = "";
-    event += `${elapsedTime} ${eventId[0]} ${col} ${row} (${coordX} ${coordY})\n`
-    event += `${elapsedTime} ${eventId[1]} ${col} ${row} (${coordX} ${coordY})\n`
+    event += `${elapsedTime} ${eventId[0]} ${col} ${row} (${coordX} ${coordY})\n`;
+    event += `${elapsedTime} ${eventId[1]} ${col} ${row} (${coordX} ${coordY})\n`;
 
     return event;
   }
 
   static getMouseMoveEventLine(move, boardWidth, boardHeight) {
-    if (move.type !== 'mouse_move') {
+    if (move.type !== "mouse_move") {
       //currently only handle move events and ignore events such as mouse_leave or mouse_enter
       return "";
     }
@@ -256,21 +283,32 @@ class RawVF {
     const col = Utils.clamp(Math.floor(move.xRaw), 0, boardWidth - 1);
     const row = Utils.clamp(Math.floor(move.yRaw), 0, boardHeight - 1);
 
-    const coordX = Utils.clamp(Math.floor(move.xRaw * RAWVF_SQUARE_SIZE), 0, boardWidth * RAWVF_SQUARE_SIZE - 1);
-    const coordY = Utils.clamp(Math.floor(move.yRaw * RAWVF_SQUARE_SIZE), 0, boardHeight * RAWVF_SQUARE_SIZE - 1);
+    const coordX = Utils.clamp(
+      Math.floor(move.xRaw * RAWVF_SQUARE_SIZE),
+      0,
+      boardWidth * RAWVF_SQUARE_SIZE - 1
+    );
+    const coordY = Utils.clamp(
+      Math.floor(move.yRaw * RAWVF_SQUARE_SIZE),
+      0,
+      boardHeight * RAWVF_SQUARE_SIZE - 1
+    );
 
-    const event = `${elapsedTime} mv ${col} ${row} (${coordX} ${coordY})\n`
+    const event = `${elapsedTime} mv ${col} ${row} (${coordX} ${coordY})\n`;
 
     return event;
   }
 
   static createFileName(boardStats) {
     const boardWidth = boardStats.mines.length;
-    const boardHeight = boardStats.mines[0].length
+    const boardHeight = boardStats.mines[0].length;
 
-    const boardMines = boardStats.mines.flat().filter(val => val).length;
+    const boardMines = boardStats.mines.flat().filter((val) => val).length;
 
-    const variantHyphenated = boardStats.attributes.variant.replaceAll(" ", "-");
+    const variantHyphenated = boardStats.attributes.variant.replaceAll(
+      " ",
+      "-"
+    );
 
     const endTime = `${boardStats.endTime.toFixed(3)}s`;
 
@@ -278,7 +316,8 @@ class RawVF {
 
     //Get current time. Then convert to desired format, hacky way is with ISOString
     //e.g. 2011-10-05T14:48:00.000Z -> 20111005_144800
-    const exportTimestamp = now.toISOString()
+    const exportTimestamp = now
+      .toISOString()
       .replace("T", "_")
       .replace(/\.\d{3}Z/, "")
       .replaceAll(":", "")

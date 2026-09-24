@@ -130,7 +130,10 @@ class BoardInput {
     this.lastClientCoords.clientX = event.clientX;
     this.lastClientCoords.clientY = event.clientY;
 
-    if (this.board.gameStage !== "pregame" && this.board.gameStage !== "running") {
+    if (
+      this.board.gameStage !== "pregame" &&
+      this.board.gameStage !== "running"
+    ) {
       return; //only track mouse when game is running or just before
     }
 
@@ -187,7 +190,10 @@ class BoardInput {
       shouldPreventDefault = true;
     }
 
-    const isUsingTouchStartTiming = touchRevealTiming.value === "start" && (!touchStartTimingOnlyActiveGames.value || this.board.gameStage === "running");
+    const isUsingTouchStartTiming =
+      touchRevealTiming.value === "start" &&
+      (!touchStartTimingOnlyActiveGames.value ||
+        this.board.gameStage === "running");
 
     for (let touch of touches) {
       const canvasCoords = this.eventToCanvasCoord(touch);
@@ -204,8 +210,8 @@ class BoardInput {
       if (
         mobileScrollSetting.value === "zero" &&
         this.board.gameStage === "running" &&
-        this.board.tilesArray[flooredCoords.tileX]?.[flooredCoords.tileY]?.state ===
-        0 &&
+        this.board.tilesArray[flooredCoords.tileX]?.[flooredCoords.tileY]
+          ?.state === 0 &&
         this.canTileBeUsedForMobileScrollConditions(
           flooredCoords.tileX,
           flooredCoords.tileY
@@ -385,9 +391,9 @@ class BoardInput {
         ) {
           if (
             thisTouch.startCoordsData.flooredCoords.tileX ===
-            endCoordsData.flooredCoords.tileX &&
+              endCoordsData.flooredCoords.tileX &&
             thisTouch.startCoordsData.flooredCoords.tileY ===
-            endCoordsData.flooredCoords.tileY
+              endCoordsData.flooredCoords.tileY
           ) {
             coordsData = endCoordsData;
           } else {
@@ -409,9 +415,9 @@ class BoardInput {
       if (
         Math.sqrt(
           (touch.screenX - thisTouch.startScreenCoords.x) ** 2 +
-          (touch.screenY - thisTouch.startScreenCoords.y) ** 2
+            (touch.screenY - thisTouch.startScreenCoords.y) ** 2
         ) /
-        this.board.tileSize >=
+          this.board.tileSize >=
         touchScrollDistance.value
       ) {
         //Cancel touch as it has moved too much
@@ -457,7 +463,10 @@ class BoardInput {
 
     //Adapted from https://developer.mozilla.org/en-US/docs/Web/API/Touch_events
 
-    if (this.board.gameStage !== "pregame" && this.board.gameStage !== "running") {
+    if (
+      this.board.gameStage !== "pregame" &&
+      this.board.gameStage !== "running"
+    ) {
       return; //only track touch moves when game is running or just before
     }
     if (this.board.quickPaint.quickPaintActive) {
@@ -509,9 +518,9 @@ class BoardInput {
       if (
         Math.sqrt(
           (touch.screenX - thisTouch.startScreenCoords.x) ** 2 +
-          (touch.screenY - thisTouch.startScreenCoords.y) ** 2
+            (touch.screenY - thisTouch.startScreenCoords.y) ** 2
         ) /
-        this.board.tileSize >=
+          this.board.tileSize >=
         touchScrollDistance.value
       ) {
         needsDeactivating = true;
@@ -841,7 +850,10 @@ class BoardInput {
     // ############### Section for mostly mouse down stuff #################
 
     //Handle clicks in quickpaint, and exit early
-    if (this.board.quickPaint.quickPaintActive && this.board.gameStage === "running") {
+    if (
+      this.board.quickPaint.quickPaintActive &&
+      this.board.gameStage === "running"
+    ) {
       if (mouseDownOrTouchUp) {
         this.board.quickPaint.handleQuickPaintClick(
           flooredCoords.tileX,
@@ -892,7 +904,8 @@ class BoardInput {
 
     //Depress squares when hovered over with mouse down
     if (
-      (this.board.gameStage === "running" || this.board.gameStage === "pregame") &&
+      (this.board.gameStage === "running" ||
+        this.board.gameStage === "pregame") &&
       isDown &&
       isDigInput
     ) {
@@ -932,7 +945,12 @@ class BoardInput {
     }
 
     //Depress squares when hovered over with flag toggled on with mobile (chord on flag mode)
-    if (this.board.gameStage === "running" && isDown && isFlagInput && isTouchInput) {
+    if (
+      this.board.gameStage === "running" &&
+      isDown &&
+      isFlagInput &&
+      isTouchInput
+    ) {
       isDrawRequired = this.holdDownTouchFlag(
         flooredCoords.tileX,
         flooredCoords.tileY,
@@ -1118,7 +1136,6 @@ class BoardInput {
       this.board.boardRenderer.draw();
     }
   }
-
 
   mouseMove(
     unflooredTileX,
@@ -1318,7 +1335,8 @@ class BoardInput {
 
         //l chord does 3x3 block hover on numbers
         doBlockHover =
-          typeof this.board.tilesArray[hoverSquareX][hoverSquareY].state === "number";
+          typeof this.board.tilesArray[hoverSquareX][hoverSquareY].state ===
+          "number";
       }
 
       //Single square
@@ -1369,7 +1387,6 @@ class BoardInput {
     };
     this.touchDepressedSquaresMap.clear();
   }
-
 
   holdDownDig(tileX, tileY, touchIdentifier) {
     //Don't track this in stats yet (but may add in future)
@@ -1459,10 +1476,11 @@ class BoardInput {
       const isWithinLargeHitbox =
         canvasCoords.canvasRawX >= boardHorizontalPadding.value &&
         canvasCoords.canvasRawX <=
-        boardHorizontalPadding.value + this.board.width * this.board.tileSize &&
+          boardHorizontalPadding.value +
+            this.board.width * this.board.tileSize &&
         canvasCoords.canvasRawY >= topPanelTopAndBottomBorder.value &&
         canvasCoords.canvasRawY <=
-        topPanelTopAndBottomBorder.value + topPanelHeight.value;
+          topPanelTopAndBottomBorder.value + topPanelHeight.value;
 
       const useSmallHitbox =
         faceHitbox.value === "face" ||
@@ -1668,11 +1686,12 @@ class BoardInput {
     }
 
     let tileRevealedSufficientlyLongAgo =
-      this.board.tilesArray[tileX][tileY]?.revealedTimeForMobileScrollBehaviour ===
-      null ||
+      this.board.tilesArray[tileX][tileY]
+        ?.revealedTimeForMobileScrollBehaviour === null ||
       this.board.getTime() -
-      this.board.tilesArray[tileX][tileY]?.revealedTimeForMobileScrollBehaviour >=
-      mobileDelayForEnableScroll.value / 1000;
+        this.board.tilesArray[tileX][tileY]
+          ?.revealedTimeForMobileScrollBehaviour >=
+        mobileDelayForEnableScroll.value / 1000;
 
     return tileRevealedSufficientlyLongAgo;
   }

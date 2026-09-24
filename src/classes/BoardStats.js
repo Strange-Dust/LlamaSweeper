@@ -8,8 +8,8 @@ import {
   statsShowChain,
   statsShowWomZini,
   statsShowMaxEff,
-  ziniRunnerPercentageProgress
-} from 'src/composables/useSettings'
+  ziniRunnerPercentageProgress,
+} from "src/composables/useSettings";
 
 class BoardStats {
   constructor(minesArray, statsWorkerManager) {
@@ -173,7 +173,7 @@ class BoardStats {
     let chainZiniResult = ChainZini.calcNWayChainZini({
       mines: this.mines,
       numberOfIterations: 100,
-      includeClickPath: true
+      includeClickPath: true,
     });
 
     //wom zini without correction
@@ -189,7 +189,7 @@ class BoardStats {
       womZini,
       womHzini,
       cWomZini,
-      cWomHzini
+      cWomHzini,
     };
 
     this.extractZiniResults(eightZiniResult, chainZiniResult, womZiniResult);
@@ -271,7 +271,7 @@ class BoardStats {
       rqp = (time + 1) / bbbvs;
     } else {
       rqp = (estTime + 1) / bbbvs;
-    };
+    }
 
     const corr = totalEffectiveClicks / totalClicks;
 
@@ -337,9 +337,9 @@ class BoardStats {
     this.ziniRunner = new DeepChainZiniRunner(
       {
         mines: this.mines,
-        analysisType: 'separate',
+        analysisType: "separate",
         deepIterations: 5,
-        progressType: 'text',
+        progressType: "text",
       },
       {
         onPercentageProgress: (percent) => {
@@ -354,7 +354,7 @@ class BoardStats {
           if (completionCallback) {
             completionCallback();
           }
-        }
+        },
       },
       true
     );
@@ -366,7 +366,8 @@ class BoardStats {
     const includeEightWay = statsShowMaxEff.value || statsShow8Way.value;
     const include100Chain = statsShowMaxEff.value || statsShowChain.value;
     //Note womzini only shown by default for 3bv < 500, if this threshold changes also remember to update in PlayPage.vue.
-    const includeWomZini = (statsShowMaxEff.value || statsShowWomZini.value) && this.bbbv < 500;
+    const includeWomZini =
+      (statsShowMaxEff.value || statsShowWomZini.value) && this.bbbv < 500;
 
     let eightZiniResult = null;
     let chainZiniResult = null;
@@ -375,15 +376,21 @@ class BoardStats {
     try {
       //try-catch required because await might throw error if it rejects
       if (includeEightWay) {
-        eightZiniResult = await this.statsWorkerManager.calc8WayZiniInWorker(this.mines)
+        eightZiniResult = await this.statsWorkerManager.calc8WayZiniInWorker(
+          this.mines
+        );
       }
 
       if (include100Chain) {
-        chainZiniResult = await this.statsWorkerManager.calc100ChainInWorker(this.mines)
+        chainZiniResult = await this.statsWorkerManager.calc100ChainInWorker(
+          this.mines
+        );
       }
 
       if (includeWomZini) {
-        womZiniResult = await this.statsWorkerManager.calcWomZinisInWorker(this.mines)
+        womZiniResult = await this.statsWorkerManager.calcWomZinisInWorker(
+          this.mines
+        );
       }
 
       this.extractZiniResults(eightZiniResult, chainZiniResult, womZiniResult);
@@ -419,7 +426,12 @@ class BoardStats {
 
   updateMaxEffAndZiniDisplay() {
     //recomputes max eff based on available stats
-    const nonNullZinis = [this.chainZini, this.eightZini, this.womZini, this.cWomZini].filter(z => z !== null);
+    const nonNullZinis = [
+      this.chainZini,
+      this.eightZini,
+      this.womZini,
+      this.cWomZini,
+    ].filter((z) => z !== null);
     let bestZini;
     if (nonNullZinis.length !== 0) {
       bestZini = Math.min(...nonNullZinis);
@@ -427,7 +439,9 @@ class BoardStats {
       bestZini = null;
     }
 
-    if (!statsShowMaxEff.value) { bestZini = null; }
+    if (!statsShowMaxEff.value) {
+      bestZini = null;
+    }
 
     let maxEff;
     if (bestZini !== null) {
@@ -448,7 +462,9 @@ class BoardStats {
     if (this.deepZini != null) {
       statsObject.value.deepZini = this.deepZini;
       statsObject.value.deepMaxEff = (
-        (100 * this.bbbv) / this.deepZini).toFixed(0);
+        (100 * this.bbbv) /
+        this.deepZini
+      ).toFixed(0);
     }
   }
 
@@ -464,8 +480,10 @@ class BoardStats {
       mode = 1; //Beginner
     } else if (width === 16 && height === 16 && totalMines === 40) {
       mode = 2; //Intermediate
-    } else if ((width === 30 && height === 16 && totalMines === 99) ||
-      (width === 16 && height === 30 && totalMines === 99)) {
+    } else if (
+      (width === 30 && height === 16 && totalMines === 99) ||
+      (width === 16 && height === 30 && totalMines === 99)
+    ) {
       mode = 3; //Expert
     } else {
       return null; //Not a standard board, so STNB can't be calculated
@@ -473,7 +491,9 @@ class BoardStats {
 
     //Formula from https://minesweeper.fandom.com/wiki/STNB
     //note - STNB is very confusing. Arbiter/Minesweepergame/saolei all seem to do it slightly differently
-    let stnb = (87.420 * (mode ** 2) - 155.829 * mode + 115.708) / ((time ** 1.7) / solved3bv / ((solved3bv / total3bv) ** 0.5));
+    let stnb =
+      (87.42 * mode ** 2 - 155.829 * mode + 115.708) /
+      (time ** 1.7 / solved3bv / (solved3bv / total3bv) ** 0.5);
 
     //extra note. Another way to do STNB for partial games would be to use Estimated Time instead of time.
     //This is equivalent to the below. Note ^0.7 in the formula instead of 0.5. 0.7 comes from doing a lot of maths with rearranging stuff (ends up being 1.7 - 0.7).
@@ -497,7 +517,9 @@ class BoardStats {
     this.meanMineStates = structuredClone(meanMineStates);
 
     //Reset activeness of mines (defensive)
-    this.meanMineStates.forEach((c) => c.forEach(cell => cell.isActive = false));
+    this.meanMineStates.forEach((c) =>
+      c.forEach((cell) => (cell.isActive = false))
+    );
   }
 }
 
