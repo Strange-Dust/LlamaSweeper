@@ -133,7 +133,8 @@ class BoardInput {
 
     if (
       this.board.gameStage !== "pregame" &&
-      this.board.gameStage !== "running"
+      this.board.gameStage !== "running" &&
+      this.board.gameStage !== "practice-countdown"
     ) {
       return; //only track mouse when game is running or just before
     }
@@ -747,7 +748,8 @@ class BoardInput {
     if (
       mobileModeEnabled.value ||
       event.target === this.board.mainCanvas.value ||
-      this.board.gameStage !== "running" ||
+      (this.board.gameStage !== "running" &&
+        this.board.gameStage !== "practice-countdown") ||
       this.board.quickPaint.quickPaintActive ||
       (event.button !== 0 && event.button !== 2)
     ) {
@@ -879,6 +881,21 @@ class BoardInput {
 
     // ############### Section for mostly mouse down stuff #################
 
+    //Practice variant: while the board is hidden only the start button responds
+    if (
+      this.board.gameStage === "practice-armed" ||
+      this.board.gameStage === "practice-countdown"
+    ) {
+      this.board.practice.handlePreRoundInput({
+        isDigInput,
+        isFlagInput,
+        isTouchInput,
+        isDown,
+        coordsData,
+        touchIdentifier,
+      });
+      return;
+    }
     //Handle clicks in quickpaint, and exit early
     if (
       this.board.quickPaint.quickPaintActive &&
@@ -1169,7 +1186,13 @@ class BoardInput {
     }
 
     //Check if board is complete (note that checking gameStage is redundant but defensive)
-    if (this.board.gameStage === "running" && needToCheckForWinOrLoss) {
+    if (
+      this.board.variant === "practice" &&
+      this.board.gameStage === "running"
+    ) {
+      //Practice records board events and applies the scenario's completion rule
+      this.board.practice.processBoardInput(needToCheckForWinOrLoss);
+    } else if (this.board.gameStage === "running" && needToCheckForWinOrLoss) {
       if (this.board.blasted) {
         this.board.boardActions.doLose();
       } else if (this.board.boardActions.checkWin()) {

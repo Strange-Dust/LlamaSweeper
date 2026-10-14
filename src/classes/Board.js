@@ -16,6 +16,7 @@ import BoardRenderer from "src/classes/BoardRenderer";
 import BoardHint from "src/classes/BoardHint";
 import QuickPaint from "src/classes/QuickPaint";
 import MeanOpenings from "src/classes/MeanOpenings";
+import PracticeMode from "src/classes/practice/PracticeMode";
 import BoardInput from "src/classes/BoardInput";
 import BoardActions from "src/classes/BoardActions";
 
@@ -74,6 +75,7 @@ class Board {
     this.boardHint = new BoardHint(this);
     this.quickPaint = new QuickPaint(this);
     this.meanOpenings = new MeanOpenings(this);
+    this.practice = new PracticeMode(this);
     this.boardInput = new BoardInput(this);
     this.boardActions = new BoardActions(this);
 
@@ -104,6 +106,8 @@ class Board {
       return;
     }
 
+    this.practice.cancel();
+
     if (
       isVariantChange &&
       (this.variant === "board editor" || this.variant === "zini explorer")
@@ -117,6 +121,14 @@ class Board {
     this.mineCount = boardMines.value;
     this.tileSize = tileSizeSlider.value;
     this.variant = variant.value;
+
+    if (this.variant === "practice") {
+      //Practice scenarios decide their own size, and mines are generated per round
+      const practiceSize = this.practice.prepareSet();
+      this.width = practiceSize.width;
+      this.height = practiceSize.height;
+      this.mineCount = 0;
+    }
 
     this.gameStage = "pregame";
 
@@ -151,6 +163,9 @@ class Board {
       isCurrentlyEditModeDisplay.value = true;
     } else if (this.variant === "zini explorer" && !this.editingZiniBoard) {
       this.gameStage = "analyse";
+      isCurrentlyEditModeDisplay.value = false;
+    } else if (this.variant === "practice") {
+      this.gameStage = "practice-armed";
       isCurrentlyEditModeDisplay.value = false;
     } else {
       this.gameStage = "pregame";
@@ -888,6 +903,7 @@ class Board {
       case "eff boards":
       case "mean openings":
       case "board editor":
+      case "practice":
         this.gameStage = this.stateBeforeReplay.gameStage;
         this.integerTimer = this.stateBeforeReplay.integerTimer;
         this.unflagged = this.stateBeforeReplay.unflagged;

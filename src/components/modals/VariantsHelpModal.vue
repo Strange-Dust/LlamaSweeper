@@ -54,6 +54,14 @@
               that get expanded automatically).
             </td>
           </tr>
+          <tr>
+            <td class="text-left" style="vertical-align: top">Practice</td>
+            <td class="text-left" style="text-wrap: wrap">
+              Training scenarios that drill one skill at a time, such as
+              flicking to a target. Pick a scenario, press the start button in
+              the middle of the board, and get a scorecard when you finish.
+            </td>
+          </tr>
         </tbody>
       </q-markup-table>
 

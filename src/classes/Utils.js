@@ -95,6 +95,7 @@ class Utils {
       "board editor": "board-editor",
       "zini explorer": "zini-explorer",
       "mean openings": "mean-openings",
+      practice: "practice",
     };
 
     if (variantRouteMap[variant]) {
@@ -111,6 +112,7 @@ class Utils {
       "board-editor": "board editor",
       "zini-explorer": "zini explorer",
       "mean-openings": "mean openings",
+      practice: "practice",
     };
 
     if (routeVariantMap[routeName]) {

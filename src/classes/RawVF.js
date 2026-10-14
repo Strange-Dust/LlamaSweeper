@@ -1,5 +1,6 @@
 import { exportFile } from "quasar";
 import Utils from "./Utils.js";
+import CONSTANTS from "src/includes/Constants";
 import { recordButtonEvents } from "src/composables/useSettings";
 
 const RAWVF_SQUARE_SIZE = 64; //Keep this high to make things smoother even though real square size may differ
@@ -133,6 +134,10 @@ class RawVF {
 
     const replayFileName = this.createFileName(boardStats);
 
+    this.sendRawVfTextToStrangeDust(rawVfText, replayFileName);
+  }
+
+  static sendRawVfTextToStrangeDust(rawVfText, replayFileName) {
     if (!("TextEncoder" in window)) {
       alert("Sorry, this browser does not support TextEncoder...");
       throw new Error("TextEncoder unavailable");
@@ -345,20 +350,204 @@ class RawVF {
 
     const endTime = `${boardStats.endTime.toFixed(3)}s`;
 
+    const exportTimestamp = this.getExportTimestamp();
+
+    let fileName = `${boardWidth}x${boardHeight}_${boardMines}-${variantHyphenated}-${endTime}-${exportTimestamp}.rawvf`;
+
+    return fileName;
+  }
+
+  static getExportTimestamp() {
     let now = new Date();
 
     //Get current time. Then convert to desired format, hacky way is with ISOString
     //e.g. 2011-10-05T14:48:00.000Z -> 20111005_144800
-    const exportTimestamp = now
+    return now
       .toISOString()
       .replace("T", "_")
       .replace(/\.\d{3}Z/, "")
       .replaceAll(":", "")
       .replaceAll("-", "");
+  }
 
-    let fileName = `${boardWidth}x${boardHeight}_${boardMines}-${variantHyphenated}-${endTime}-${exportTimestamp}.rawvf`;
+  // ########## Practice variant ##########
+  //One file per practice set, with one Description/Board/Events section per round.
+  //Rounds start partly revealed, so full board events are included (BoardEvents: On).
 
-    return fileName;
+  static createPracticeRawVfText(rounds) {
+    return rounds
+      .map((round) => this.createPracticeSection(round, rounds.length))
+      .join("");
+  }
+
+  static createPracticeSection(round, setSize) {
+    const mineCount = round.mines.flat().filter((s) => s).length;
+
+    let text = "Description:\n";
+    text += "RawVF_Version: Rev7\n";
+    text += "Program: LlamaSweeper\n";
+    text += `Level: ${this.getLevelFromSize({ mines: round.mines })}\n`;
+    text += `Width: ${round.width}\n`;
+    text += `Height: ${round.height}\n`;
+    text += `Mines: ${mineCount}\n`;
+    text += "Marks: Off\n";
+    text += `SuperClick: ${round.superClick ? "On" : "Off"}\n`;
+    text += `SquareSize: ${RAWVF_SQUARE_SIZE}\n`;
+    text += `Time: ${round.endTime.toFixed(3)}\n`;
+    text += `Status: ${round.outcome === "won" ? "won" : "lost"}\n`;
+    text += `Mode: ${round.rawvfMode}\n`;
+    text += "BoardEvents: On\n";
+    text += `Scenario: ${round.scenarioId}\n`;
+    text += `ScenarioVersion: ${round.scenarioVersion}\n`;
+    text += `Round: ${round.index + 1}/${setSize}\n`;
+    text += `Seed: ${round.seed}\n`;
+
+    text += "Board:\n";
+    for (let y = 0; y < round.height; y++) {
+      let row = "";
+      for (let x = 0; x < round.width; x++) {
+        row += round.mines[x][y] ? "*" : "0";
+      }
+      text += row + "\n";
+    }
+
+    text += "Events:\n";
+    text += this.createPracticeEvents(round);
+
+    return text;
+  }
+
+  static createPracticeEvents(round) {
+    //Priority orders items with equal times: mouse input, then the board changes it caused, then game events
+    const items = [];
+
+    const useButtonEvents =
+      recordButtonEvents.value && round.buttonEvents.length > 0;
+    if (useButtonEvents) {
+      for (const buttonEvent of round.buttonEvents) {
+        items.push({
+          time: buttonEvent.time,
+          priority: 0,
+          text: this.getButtonEventLine(buttonEvent),
+        });
+      }
+    } else {
+      for (const click of round.clicks) {
+        items.push({
+          time: click.time,
+          priority: 0,
+          text: this.getMouseClickEventLine(
+            click,
+            round.width,
+            round.height,
+            round.superClick
+          ),
+        });
+      }
+    }
+
+    for (const move of round.moves) {
+      const line = this.getMouseMoveEventLine(move, round.width, round.height);
+      if (line !== "") {
+        items.push({ time: move.time, priority: 0, text: line });
+      }
+    }
+
+    //Starting state appears just before the timer starts (RawVF note 5 uses -0.001 for this)
+    const initialLines = [];
+    for (let x = 0; x < round.width; x++) {
+      for (let y = 0; y < round.height; y++) {
+        const eventId = this.getBoardEventId(round.initialTiles[x][y]);
+        if (eventId && round.initialTiles[x][y] !== CONSTANTS.UNREVEALED) {
+          initialLines.push(`${eventId} ${x} ${y}\n`);
+        }
+      }
+    }
+    items.push({ time: -0.001, priority: 1, boardLines: initialLines });
+
+    items.push({ time: 0, priority: 2, text: "0.000 start\n" });
+
+    for (const boardEvent of round.boardEvents) {
+      const eventId = this.getBoardEventId(boardEvent.state);
+      if (eventId) {
+        items.push({
+          time: boardEvent.time,
+          priority: 1,
+          boardLines: [`${eventId} ${boardEvent.x} ${boardEvent.y}\n`],
+        });
+      }
+    }
+
+    items.push({
+      time: round.endTime,
+      priority: 3,
+      text: `${this.formatTime(round.endTime)} ${
+        round.outcome === "won" ? "won" : "lost"
+      }\n`,
+    });
+
+    items.sort((a, b) => a.time - b.time || a.priority - b.priority);
+
+    let events = "";
+    let lastTimeText = null;
+    for (const item of items) {
+      if (item.boardLines) {
+        //Board events take the time of the preceding line, so add a time marker if that differs
+        const timeText = this.formatTime(item.time);
+        if (timeText !== lastTimeText) {
+          events += `${timeText}\n`;
+          lastTimeText = timeText;
+        }
+        events += item.boardLines.join("");
+      } else {
+        events += item.text;
+        lastTimeText = this.formatTime(item.time);
+      }
+    }
+
+    return events;
+  }
+
+  static getBoardEventId(state) {
+    if (typeof state === "number") {
+      return `number${state}`;
+    }
+    switch (state) {
+      case CONSTANTS.UNREVEALED:
+        return "closed";
+      case CONSTANTS.FLAG:
+        return "flag";
+      case CONSTANTS.MINERED:
+        return "blast";
+      default:
+        return null;
+    }
+  }
+
+  static formatTime(time) {
+    const text = time.toFixed(3);
+    return text === "-0.000" ? "0.000" : text;
+  }
+
+  static createPracticeFileName(rounds) {
+    const first = rounds[0];
+    return `${first.width}x${first.height}-practice-${first.scenarioId}-${
+      rounds.length
+    }r-${this.getExportTimestamp()}.rawvf`;
+  }
+
+  static downloadPracticeRawVf(rounds) {
+    exportFile(
+      this.createPracticeFileName(rounds),
+      this.createPracticeRawVfText(rounds)
+    );
+  }
+
+  static sendPracticeToStrangeDust(rounds) {
+    this.sendRawVfTextToStrangeDust(
+      this.createPracticeRawVfText(rounds),
+      this.createPracticeFileName(rounds)
+    );
   }
 }
 

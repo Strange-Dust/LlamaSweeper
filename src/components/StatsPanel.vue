@@ -222,8 +222,11 @@
           </span>
         </div>
       </div>
-      <br class="screenshot-hidden" />
-      <div class="row justify-center q-mb-md screenshot-hidden">
+      <br v-if="variant !== 'practice'" class="screenshot-hidden" />
+      <div
+        v-if="variant !== 'practice'"
+        class="row justify-center q-mb-md screenshot-hidden"
+      >
         <q-btn-dropdown color="primary" label="Open In">
           <q-list>
             <q-item
@@ -291,7 +294,10 @@
           </q-list>
         </q-btn-dropdown>
       </div>
-      <div class="row justify-center q-mb-md screenshot-hidden">
+      <div
+        v-if="variant !== 'practice'"
+        class="row justify-center q-mb-md screenshot-hidden"
+      >
         <q-btn-dropdown color="primary" label="Export">
           <q-list>
             <q-item
@@ -340,7 +346,10 @@
           </q-list>
         </q-btn-dropdown>
       </div>
-      <div class="row justify-center screenshot-hidden">
+      <div
+        v-if="variant !== 'practice'"
+        class="row justify-center screenshot-hidden"
+      >
         <q-btn-dropdown
           v-if="variant !== 'mean openings'"
           color="primary"

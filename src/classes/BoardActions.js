@@ -595,6 +595,10 @@ class BoardActions {
     this.board.boardRenderer.clearTimerTimeout();
     this.board.integerTimer = Math.floor(finalTime);
     this.board.calculateAndDisplayStats(false);
+    if (this.board.variant === "practice") {
+      this.board.practice.handleRoundEnd(false);
+      return;
+    }
     if (
       (this.board.variant === "eff boards" &&
         statsRunDeepChain.value === "eff always") ||
@@ -649,6 +653,10 @@ class BoardActions {
     this.board.boardRenderer.clearTimerTimeout();
     this.board.integerTimer = Math.floor(finalTime);
     this.board.calculateAndDisplayStats(true);
+    if (this.board.variant === "practice") {
+      this.board.practice.handleRoundEnd(true);
+      return;
+    }
     if (
       (this.board.variant === "eff boards" &&
         ["eff win", "eff always"].includes(statsRunDeepChain.value)) ||

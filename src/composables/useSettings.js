@@ -407,6 +407,21 @@ let meanMineClickBehaviour = useLocalStorage(
   "shield"
 ); //flag, blast, shield for 0.5 seconds, ignore
 
+let practiceScenarioId = useLocalStorage("ls_practiceScenarioId", "flick");
+//Option values per scenario, keyed by "<scenarioId>@v<version>" so a scenario's options can change without reusing stale values
+let practiceScenarioOptions = useLocalStorage("ls_practiceScenarioOptions", {});
+let practicePickerModal = ref(false);
+function emptyPracticeResults() {
+  return {
+    scenarioName: "",
+    totalRounds: 0,
+    rounds: [], //{ index, outcome, metrics: [{ key, label, unit, better, value }] }
+    summary: null,
+    complete: false,
+  };
+}
+let practiceResults = ref(emptyPracticeResults());
+
 let replayProgress = ref(-1);
 let replayProgressRounded = ref("-1.000"); //Same as replayProgress, but only to 3 d.p.
 let replayIsPlaying = ref(false);
@@ -567,6 +582,10 @@ function resetTransientSettings() {
   pttaImportModal.value = false;
   mbfImportModal.value = false;
   runZiniAlgorithmModal.value = false;
+  practicePickerModal.value = false;
+
+  //Practice
+  practiceResults.value = emptyPracticeResults();
 
   //Stats panel
   showStatsBlock.value = false;
@@ -741,6 +760,11 @@ export {
   meanOpeningMineDensity,
   meanOpeningFlagDensity,
   meanMineClickBehaviour,
+  practiceScenarioId,
+  practiceScenarioOptions,
+  practicePickerModal,
+  practiceResults,
+  emptyPracticeResults,
   replayProgress,
   replayProgressRounded,
   replayIsPlaying,

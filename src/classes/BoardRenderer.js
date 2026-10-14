@@ -56,6 +56,95 @@ class BoardRenderer {
       //this.drawTilesZiniDelta();
       this.drawCursor();
     }
+
+    if (this.board.variant === "practice") {
+      this.drawPracticeOverlay();
+    }
+  }
+
+  drawPracticeOverlay() {
+    //Start button / countdown drawn over the hidden board. Kept as one final step so it can become its own layer later.
+    const overlay = this.board.practice.getOverlay();
+    if (!overlay) {
+      return;
+    }
+
+    const ctx = this.board.mainCanvasCtx;
+    const colours = skinManager.getPracticeColours();
+    const tileSize = this.board.tileSize;
+
+    ctx.save();
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+
+    if (overlay.type === "start") {
+      const rect = overlay.rect;
+      const radius = Math.min(rect.height / 4, tileSize / 3);
+
+      ctx.beginPath();
+      if (ctx.roundRect) {
+        ctx.roundRect(rect.x, rect.y, rect.width, rect.height, radius);
+      } else {
+        ctx.rect(rect.x, rect.y, rect.width, rect.height);
+      }
+      ctx.fillStyle = colours.button;
+      ctx.fill();
+      ctx.lineWidth = Math.max(1, tileSize / 12);
+      ctx.strokeStyle = colours.buttonBorder;
+      ctx.stroke();
+
+      ctx.fillStyle = colours.buttonText;
+      ctx.font = `bold ${Math.floor(rect.height * 0.5)}px sans-serif`;
+      ctx.fillText(
+        "Start",
+        rect.x + rect.width / 2,
+        rect.y + rect.height / 2,
+        rect.width * 0.9
+      );
+
+      const captionY = rect.y + rect.height + tileSize * 0.6;
+      if (
+        overlay.caption &&
+        captionY + tileSize / 2 <=
+          boardTopPadding.value + this.board.height * tileSize
+      ) {
+        this.drawOutlinedText(
+          overlay.caption,
+          rect.x + rect.width / 2,
+          captionY,
+          Math.floor(tileSize * 0.6),
+          colours,
+          this.board.width * tileSize
+        );
+      }
+    } else if (overlay.type === "countdown") {
+      const boardPixelWidth = this.board.width * tileSize;
+      const boardPixelHeight = this.board.height * tileSize;
+      const fontSize = Math.floor(
+        Math.min(tileSize * 3, boardPixelHeight * 0.8, boardPixelWidth * 0.8)
+      );
+      this.drawOutlinedText(
+        String(overlay.value),
+        boardHorizontalPadding.value + boardPixelWidth / 2,
+        boardTopPadding.value + boardPixelHeight / 2,
+        fontSize,
+        colours,
+        boardPixelWidth
+      );
+    }
+
+    ctx.restore();
+  }
+
+  drawOutlinedText(text, centreX, centreY, fontSize, colours, maxWidth) {
+    const ctx = this.board.mainCanvasCtx;
+    ctx.font = `bold ${fontSize}px sans-serif`;
+    ctx.lineJoin = "round";
+    ctx.lineWidth = Math.max(2, fontSize / 8);
+    ctx.strokeStyle = colours.overlayOutline;
+    ctx.strokeText(text, centreX, centreY, maxWidth);
+    ctx.fillStyle = colours.overlayText;
+    ctx.fillText(text, centreX, centreY, maxWidth);
   }
 
   drawTiles() {

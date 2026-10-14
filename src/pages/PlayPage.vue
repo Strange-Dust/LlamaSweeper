@@ -34,6 +34,7 @@
             { label: 'Board Editor', value: 'board editor' },
             { label: 'ZiNi Explorer', value: 'zini explorer' },
             { label: 'Mean Openings', value: 'mean openings' },
+            { label: 'Practice', value: 'practice' },
           ]"
           emit-value
           map-options
@@ -74,6 +75,8 @@
         v-if="variant === 'mean openings'"
         class="flex-centreable"
       />
+
+      <PracticeConfigBar v-if="variant === 'practice'" />
 
       <div
         ref="game-container"
@@ -119,7 +122,15 @@
         </canvas>
         <q-resize-observer debounce="30" @resize="game.refreshSize()" />
 
-        <StatsPanel v-if="showStatsBlock" class="side-panel" />
+        <StatsPanel
+          v-if="showStatsBlock && variant !== 'practice'"
+          class="side-panel"
+        />
+
+        <PracticeScorecard
+          v-if="variant === 'practice' && practiceResults.rounds.length > 0"
+          class="side-panel"
+        />
 
         <ZiniAnalysisPanel
           v-if="
@@ -138,7 +149,7 @@
       </div>
 
       <BoardToolsBar
-        v-if="variant !== 'zini explorer'"
+        v-if="variant !== 'zini explorer' && variant !== 'practice'"
         class="flex-centreable"
       />
 
@@ -178,6 +189,7 @@
 
   <EffBoardsHiddenSettingsModal />
 
+  <PracticeScenarioPickerModal />
   <!-- End of Modals -->
 
   <MobileFlagButton v-if="mobileModeEnabled && !replayIsShown" />
@@ -277,6 +289,9 @@ import BoardConfigBar from "src/components/BoardConfigBar.vue";
 import MeanOpeningsConfig from "src/components/MeanOpeningsConfig.vue";
 import EffBoardsStatusBar from "src/components/EffBoardsStatusBar.vue";
 import BoardToolsBar from "src/components/BoardToolsBar.vue";
+import PracticeConfigBar from "src/components/practice/PracticeConfigBar.vue";
+import PracticeScorecard from "src/components/practice/PracticeScorecard.vue";
+import PracticeScenarioPickerModal from "src/components/modals/PracticeScenarioPickerModal.vue";
 
 const DevBlock = defineAsyncComponent(() =>
   import("src/components/DevBlock.vue")
@@ -325,6 +340,7 @@ import {
   keyboardClickDigKey,
   keyboardClickFlagKey,
   filterStyleProperty,
+  practiceResults,
   resetTransientSettings,
 } from "src/composables/useSettings";
 
@@ -387,11 +403,17 @@ function handleKeyDown(event) {
     if (!checkFocusForKeyPress(event)) {
       return;
     }
+    if (variant.value === "practice") {
+      return; //Hints are disabled in practice
+    }
     game.board.boardHint.toggleHint();
   }
   if (event.key === "q") {
     if (!checkFocusForKeyPress(event)) {
       return;
+    }
+    if (variant.value === "practice") {
+      return; //QuickPaint is disabled in practice
     }
     game.board.quickPaint.toggleQuickPaint();
     //event.preventDefault();
@@ -556,6 +578,7 @@ class Game {
     }
 
     this.board.boardRenderer.clearTimerTimeout();
+    this.board.practice.cancel();
     this.board.saveGameIfRunning();
     this.board.stopUrlWatch();
     this.board.ziniExplore?.killDeepChainZiniRunner();

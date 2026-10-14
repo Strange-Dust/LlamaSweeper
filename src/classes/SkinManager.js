@@ -211,6 +211,11 @@ class SkinManager {
       classicChord: "#A3D1FF", //light blue
       premium: "black",
       highlight: "#2FEF00",
+      practiceButton: "#e0e0e0",
+      practiceButtonBorder: "#7b7b7b",
+      practiceButtonText: "#000000",
+      practiceOverlayText: "#000000",
+      practiceOverlayOutline: "#ffffff",
       hint: {
         safe: {
           hue: 120,
@@ -245,6 +250,11 @@ class SkinManager {
       classicChord: "#0056ac", //light blue (closer to purple for dark scheme)
       premium: "white",
       highlight: "#2FEF00",
+      practiceButton: "#5b646d",
+      practiceButtonBorder: "#2b3036",
+      practiceButtonText: "#ffffff",
+      practiceOverlayText: "#ffffff",
+      practiceOverlayOutline: "#000000",
       hint: {
         safe: {
           hue: 120,
@@ -407,6 +417,17 @@ class SkinManager {
 
   getHighlightColour() {
     return this.colours[boardSkin.value].highlight;
+  }
+
+  getPracticeColours() {
+    const colours = this.colours[boardSkin.value];
+    return {
+      button: colours.practiceButton,
+      buttonBorder: colours.practiceButtonBorder,
+      buttonText: colours.practiceButtonText,
+      overlayText: colours.practiceOverlayText,
+      overlayOutline: colours.practiceOverlayOutline,
+    };
   }
 
   getHintColour(colourScale, isFloating) {
