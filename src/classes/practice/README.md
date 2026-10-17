@@ -49,4 +49,12 @@ Any value can be `{ $option: "key" }` to use the user's choice for that option. 
 
 `gameStage` goes `practice-armed` → `practice-countdown` → `running` → `won`/`lost`, and then either the next round or the end of the set. Time 0 is the moment the board is revealed, so input during the countdown has negative timestamps.
 
-Each round produces a serialisable round record (`roundRecord.js`) containing the clicks, moves, button events, board events and metrics. The scorecard is shown once the whole set is complete. Records are held in memory only. RawVF export (`RawVF.createPracticeRawVfText`) writes one section per round, with full board events.
+Each round produces a serialisable round record (`roundRecord.js`) containing the clicks, moves, button events, board events and metrics. The scorecard is shown once the whole set is complete. Records are held in memory only.
+
+## Timing and RawVF export
+
+A set is **one game** on one clock, with time 0 at the first round's reveal. Inside a round record every time is relative to that round's own reveal, which keeps metrics independent of the rest of the set. Each record also stores `revealOffset`, the game time of its reveal, and the exporter adds it to every event. So the first round's countdown is negative, and later rounds' countdowns are positive game times.
+
+Between rounds the cursor keeps being recorded (appended to the finished round's own moves, which are already on that round's clock), so the exported path has no gaps. Clicks on the start button are not recorded, because on the hidden board they would look like a click on a closed square.
+
+`RawVF.createPracticeRawVfText` writes a single Description/Board/Events section. At each round boundary it writes `closed` events for every cell that is not closed, then a board change block (the next round's mines, then `Events:` again, as in the spec), then the next round's starting state as board events. A mine hit before the last round is written as `local_blast`, since the game carries on. The `Status:` and the final `won`/`lost` come from the last round, and `RoundsWon` in the description gives the rest.

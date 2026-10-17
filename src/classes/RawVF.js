@@ -371,119 +371,188 @@ class RawVF {
   }
 
   // ########## Practice variant ##########
-  //One file per practice set, with one Description/Board/Events section per round.
+  //A whole practice set is one RawVF game: one Description/Board/Events section, with time 0 at the
+  //first round's reveal. Between rounds the board is reset using a board change block (spec 4.5).
   //Rounds start partly revealed, so full board events are included (BoardEvents: On).
 
   static createPracticeRawVfText(rounds) {
-    return rounds
-      .map((round) => this.createPracticeSection(round, rounds.length))
-      .join("");
-  }
+    const first = rounds[0];
+    const last = rounds.at(-1);
+    const mineCount = first.mines.flat().filter((s) => s).length;
+    const roundsWon = rounds.filter((r) => r.outcome === "won").length;
+    const totalTime = last.revealOffset + last.endTime;
 
-  static createPracticeSection(round, setSize) {
-    const mineCount = round.mines.flat().filter((s) => s).length;
-
+    //The game result comes from the last round. Mid-set results are in RoundsWon and the board events.
     let text = "Description:\n";
     text += "RawVF_Version: Rev7\n";
     text += "Program: LlamaSweeper\n";
-    text += `Level: ${this.getLevelFromSize({ mines: round.mines })}\n`;
-    text += `Width: ${round.width}\n`;
-    text += `Height: ${round.height}\n`;
+    text += `Level: ${this.getLevelFromSize({ mines: first.mines })}\n`;
+    text += `Width: ${first.width}\n`;
+    text += `Height: ${first.height}\n`;
     text += `Mines: ${mineCount}\n`;
     text += "Marks: Off\n";
-    text += `SuperClick: ${round.superClick ? "On" : "Off"}\n`;
+    text += `SuperClick: ${first.superClick ? "On" : "Off"}\n`;
     text += `SquareSize: ${RAWVF_SQUARE_SIZE}\n`;
-    text += `Time: ${round.endTime.toFixed(3)}\n`;
-    text += `Status: ${round.outcome === "won" ? "won" : "lost"}\n`;
-    text += `Mode: ${round.rawvfMode}\n`;
+    text += `Time: ${totalTime.toFixed(3)}\n`;
+    text += `Status: ${last.outcome === "won" ? "won" : "lost"}\n`;
+    text += `Mode: ${first.rawvfMode}\n`;
     text += "BoardEvents: On\n";
-    text += `Scenario: ${round.scenarioId}\n`;
-    text += `ScenarioVersion: ${round.scenarioVersion}\n`;
-    text += `Round: ${round.index + 1}/${setSize}\n`;
-    text += `Seed: ${round.seed}\n`;
+    text += `Scenario: ${first.scenarioId}\n`;
+    text += `ScenarioVersion: ${first.scenarioVersion}\n`;
+    text += `Rounds: ${rounds.length}\n`;
+    text += `RoundsWon: ${roundsWon}\n`;
+    text += `Seeds: ${rounds.map((r) => r.seed).join(",")}\n`;
 
-    text += "Board:\n";
-    for (let y = 0; y < round.height; y++) {
-      let row = "";
-      for (let x = 0; x < round.width; x++) {
-        row += round.mines[x][y] ? "*" : "0";
-      }
-      text += row + "\n";
-    }
-
+    text += this.createBoardBlock(first.mines);
     text += "Events:\n";
-    text += this.createPracticeEvents(round);
+    text += this.createPracticeEvents(rounds);
 
     return text;
   }
 
-  static createPracticeEvents(round) {
-    //Priority orders items with equal times: mouse input, then the board changes it caused, then game events
+  static createBoardBlock(mines) {
+    const width = mines.length;
+    const height = mines[0].length;
+    let text = "Board:\n";
+    for (let y = 0; y < height; y++) {
+      let row = "";
+      for (let x = 0; x < width; x++) {
+        row += mines[x][y] ? "*" : "0";
+      }
+      text += row + "\n";
+    }
+    return text;
+  }
+
+  //Tile states at the end of a round, from its starting state plus the board events the player caused
+  static getFinalPracticeStates(round) {
+    const states = round.initialTiles.map((column) => [...column]);
+    for (const boardEvent of round.boardEvents) {
+      states[boardEvent.x][boardEvent.y] = boardEvent.state;
+    }
+    return states;
+  }
+
+  static createPracticeEvents(rounds) {
+    //Priority orders items with equal times: mouse input, then board changes, then game events
     const items = [];
 
-    const useButtonEvents =
-      recordButtonEvents.value && round.buttonEvents.length > 0;
-    if (useButtonEvents) {
-      for (const buttonEvent of round.buttonEvents) {
-        items.push({
-          time: buttonEvent.time,
-          priority: 0,
-          text: this.getButtonEventLine(buttonEvent),
-        });
-      }
-    } else {
-      for (const click of round.clicks) {
-        items.push({
-          time: click.time,
-          priority: 0,
-          text: this.getMouseClickEventLine(
-            click,
-            round.width,
-            round.height,
-            round.superClick
-          ),
-        });
-      }
-    }
+    rounds.forEach((round, roundIndex) => {
+      const isFirst = roundIndex === 0;
+      const isLast = roundIndex === rounds.length - 1;
 
-    for (const move of round.moves) {
-      const line = this.getMouseMoveEventLine(move, round.width, round.height);
-      if (line !== "") {
-        items.push({ time: move.time, priority: 0, text: line });
-      }
-    }
+      //Round times are relative to the round's own reveal, so shift them onto the whole game's clock.
+      //Mouse movement recorded while the next round was being set up is already stored with this round.
+      const offset = round.revealOffset;
+      const shifted = (entry) => ({ ...entry, time: entry.time + offset });
 
-    //Starting state appears just before the timer starts (RawVF note 5 uses -0.001 for this)
-    const initialLines = [];
-    for (let x = 0; x < round.width; x++) {
-      for (let y = 0; y < round.height; y++) {
-        const eventId = this.getBoardEventId(round.initialTiles[x][y]);
-        if (eventId && round.initialTiles[x][y] !== CONSTANTS.UNREVEALED) {
-          initialLines.push(`${eventId} ${x} ${y}\n`);
+      const useButtonEvents =
+        recordButtonEvents.value && round.buttonEvents.length > 0;
+      if (useButtonEvents) {
+        for (const buttonEvent of round.buttonEvents) {
+          const event = shifted(buttonEvent);
+          items.push({
+            time: event.time,
+            priority: 0,
+            text: this.getButtonEventLine(event),
+          });
+        }
+      } else {
+        for (const click of round.clicks) {
+          const event = shifted(click);
+          items.push({
+            time: event.time,
+            priority: 0,
+            text: this.getMouseClickEventLine(
+              event,
+              round.width,
+              round.height,
+              round.superClick
+            ),
+          });
         }
       }
-    }
-    items.push({ time: -0.001, priority: 1, boardLines: initialLines });
 
-    items.push({ time: 0, priority: 2, text: "0.000 start\n" });
+      for (const move of round.moves) {
+        const event = shifted(move);
+        const line = this.getMouseMoveEventLine(
+          event,
+          round.width,
+          round.height
+        );
+        if (line !== "") {
+          items.push({ time: event.time, priority: 0, text: line });
+        }
+      }
 
-    for (const boardEvent of round.boardEvents) {
-      const eventId = this.getBoardEventId(boardEvent.state);
-      if (eventId) {
+      if (!isFirst) {
+        //The previous round's board is cleared, then the new mines are announced
+        const previousStates = this.getFinalPracticeStates(
+          rounds[roundIndex - 1]
+        );
+        const closeLines = [];
+        for (let x = 0; x < round.width; x++) {
+          for (let y = 0; y < round.height; y++) {
+            if (previousStates[x][y] !== CONSTANTS.UNREVEALED) {
+              closeLines.push(`closed ${x} ${y}\n`);
+            }
+          }
+        }
         items.push({
-          time: boardEvent.time,
+          time: round.boardHiddenOffset,
           priority: 1,
-          boardLines: [`${eventId} ${boardEvent.x} ${boardEvent.y}\n`],
+          boardLines: closeLines,
+        });
+        items.push({
+          time: round.generatedOffset,
+          priority: 2,
+          boardChange: this.createBoardBlock(round.mines) + "Events:\n",
         });
       }
-    }
 
-    items.push({
-      time: round.endTime,
-      priority: 3,
-      text: `${this.formatTime(round.endTime)} ${
-        round.outcome === "won" ? "won" : "lost"
-      }\n`,
+      //The first round's starting state appears just before the timer starts (RawVF note 5 uses -0.001 for this).
+      //Later rounds reveal while the game is already running.
+      const initialLines = [];
+      for (let x = 0; x < round.width; x++) {
+        for (let y = 0; y < round.height; y++) {
+          const eventId = this.getBoardEventId(round.initialTiles[x][y]);
+          if (eventId && round.initialTiles[x][y] !== CONSTANTS.UNREVEALED) {
+            initialLines.push(`${eventId} ${x} ${y}\n`);
+          }
+        }
+      }
+      items.push({
+        time: isFirst ? -0.001 : offset,
+        priority: 3,
+        boardLines: initialLines,
+      });
+
+      if (isFirst) {
+        items.push({ time: 0, priority: 4, text: "0.000 start\n" });
+      }
+
+      for (const boardEvent of round.boardEvents) {
+        //A mine hit only ends the game on the last round, otherwise the set carries on
+        const eventId = this.getBoardEventId(boardEvent.state, isLast);
+        if (eventId) {
+          items.push({
+            time: boardEvent.time + offset,
+            priority: 3,
+            boardLines: [`${eventId} ${boardEvent.x} ${boardEvent.y}\n`],
+          });
+        }
+      }
+
+      if (isLast) {
+        const endTime = offset + round.endTime;
+        items.push({
+          time: endTime,
+          priority: 5,
+          text: `${this.formatTime(endTime)} ${
+            round.outcome === "won" ? "won" : "lost"
+          }\n`,
+        });
+      }
     });
 
     items.sort((a, b) => a.time - b.time || a.priority - b.priority);
@@ -491,7 +560,13 @@ class RawVF {
     let events = "";
     let lastTimeText = null;
     for (const item of items) {
-      if (item.boardLines) {
+      if (item.boardChange) {
+        events += item.boardChange;
+        lastTimeText = null; //Events resume after a board change, so the next board event needs its time restated
+      } else if (item.boardLines) {
+        if (item.boardLines.length === 0) {
+          continue;
+        }
         //Board events take the time of the preceding line, so add a time marker if that differs
         const timeText = this.formatTime(item.time);
         if (timeText !== lastTimeText) {
@@ -508,7 +583,7 @@ class RawVF {
     return events;
   }
 
-  static getBoardEventId(state) {
+  static getBoardEventId(state, blastEndsGame = true) {
     if (typeof state === "number") {
       return `number${state}`;
     }
@@ -518,7 +593,7 @@ class RawVF {
       case CONSTANTS.FLAG:
         return "flag";
       case CONSTANTS.MINERED:
-        return "blast";
+        return blastEndsGame ? "blast" : "local_blast";
       default:
         return null;
     }

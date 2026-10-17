@@ -132,6 +132,21 @@ class BoardInput {
     this.lastClientCoords.clientY = event.clientY;
 
     if (
+      this.board.variant === "practice" &&
+      this.board.practice.isBetweenRounds()
+    ) {
+      //Just record the cursor. No hover effects on a finished or hidden board
+      const betweenCoords = this.eventToUnflooredTileCoords(event);
+      this.board.practice.recordBetweenRoundsMove(
+        betweenCoords.tileX,
+        betweenCoords.tileY,
+        isEnter,
+        isLeave
+      );
+      return;
+    }
+
+    if (
       this.board.gameStage !== "pregame" &&
       this.board.gameStage !== "running" &&
       this.board.gameStage !== "practice-countdown"

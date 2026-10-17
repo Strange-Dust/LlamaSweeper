@@ -61,6 +61,15 @@ class PracticeMode {
     this.shadowStates = null; //Tile states at the last capture, used to derive board events
     this.countdownValue = null; //Number drawn over the board, null for none
     this.setComplete = false;
+
+    //The whole set is one game on one clock, with 0 = the first round's reveal.
+    //Rounds keep their own relative times for scoring, see roundRecord.js
+    this.gameOriginPerf = null; //performance.now() at the first reveal
+    this.pendingBoardHiddenOffset = null; //Game time the previous board was cleared, until the next round starts
+  }
+
+  gameTime() {
+    return (performance.now() - this.gameOriginPerf) / 1000;
   }
 
   // ########## Lifecycle ##########
@@ -71,6 +80,8 @@ class PracticeMode {
     this.countdownValue = null;
     this.currentRound = null;
     this.shadowStates = null;
+    this.gameOriginPerf = null;
+    this.pendingBoardHiddenOffset = null;
   }
 
   //Called by Board.resetBoard for the practice variant. Returns the board size to use.
@@ -106,6 +117,13 @@ class PracticeMode {
     const board = this.board;
     this.clearTimers();
     this.countdownValue = null;
+    if (
+      this.gameOriginPerf !== null &&
+      this.pendingBoardHiddenOffset === null
+    ) {
+      //Mid-set: the previous round's board disappears now
+      this.pendingBoardHiddenOffset = this.gameTime();
+    }
     board.resetTiles();
     board.unflagged = 0;
     board.integerTimer = 0;
@@ -120,6 +138,7 @@ class PracticeMode {
     const board = this.board;
     const scenario = this.scenario;
     const roundIndex = this.completedRounds.length;
+    const isMidSet = this.gameOriginPerf !== null;
     const style =
       roundIndex === 0 ? scenario.start.first : scenario.start.between;
     const seed = randomSeed();
@@ -161,6 +180,12 @@ class PracticeMode {
       board.stats.addSuperClickAttribute();
     }
 
+    const generatedOffset = isMidSet ? this.gameTime() : null;
+    const boardHiddenOffset = isMidSet
+      ? this.pendingBoardHiddenOffset ?? generatedOffset
+      : null;
+    this.pendingBoardHiddenOffset = null;
+
     this.currentRound = createRoundRecord({
       scenario,
       index: roundIndex,
@@ -169,6 +194,8 @@ class PracticeMode {
       height: board.height,
       generated,
       superClick,
+      boardHiddenOffset,
+      generatedOffset,
     });
     scenario.hooks.onRoundStart?.({
       board,
@@ -217,6 +244,12 @@ class PracticeMode {
     }
     board.boardStartTime = now;
     this.countdownValue = null;
+
+    //The first reveal starts the game clock
+    if (this.gameOriginPerf === null) {
+      this.gameOriginPerf = now;
+    }
+    round.revealOffset = (now - this.gameOriginPerf) / 1000;
 
     for (let x = 0; x < board.width; x++) {
       for (let y = 0; y < board.height; y++) {
@@ -280,6 +313,29 @@ class PracticeMode {
   }
 
   // ########## Input ##########
+
+  //Between rounds the board is finished or hidden, but the game goes on, so the cursor keeps being recorded
+  isBetweenRounds() {
+    return (
+      this.scenario !== null &&
+      this.completedRounds.length > 0 &&
+      !this.setComplete &&
+      ["won", "lost", "practice-armed"].includes(this.board.gameStage)
+    );
+  }
+
+  //Goes onto the last finished round's stats, which are still on that round's clock
+  recordBetweenRoundsMove(tileX, tileY, isEnter, isLeave) {
+    const stats = this.board.stats;
+    const time = this.board.getTime();
+    if (isEnter) {
+      stats.addMouseEnter(tileX, tileY, time);
+    } else if (isLeave) {
+      stats.addMouseLeave(tileX, tileY, time);
+    } else {
+      stats.addMouseMove(tileX, tileY, time);
+    }
+  }
 
   //Board input while the board is hidden. Only the start button does anything.
   handlePreRoundInput({

@@ -275,7 +275,7 @@ function downloadRawVf() {
   Dialog.create({
     title: "Download Started",
     message:
-      "Practice RawVF files contain one section per round and include board events. They are intended for StrangeDust's Replay Analyser and may not work with other viewers.",
+      "Practice RawVF files record the whole set as one game, with the board reset between rounds, and include board events. They are intended for StrangeDust's Replay Analyser and may not work with other viewers.",
   });
   RawVF.downloadPracticeRawVf(rounds);
 }
