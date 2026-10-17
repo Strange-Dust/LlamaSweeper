@@ -278,6 +278,7 @@ fn reports_progress_for_every_candidate() {
     let result = doms::solve_board(&board, DEFAULT_MAX_STATES, &mut |event| match event {
         DomsProgress::Plan { cut_widths } => plan_widths = Some(cut_widths.len()),
         DomsProgress::Layer { processed, total, .. } => calls.push((processed, total)),
+        DomsProgress::Path { .. } => {}
     })
     .unwrap();
     let decided = result.stats.chord_candidates - result.stats.static_removed;
@@ -293,58 +294,135 @@ const SLOW_BOARD: (&str, usize, usize) = (
     420,
 );
 
-fn benchmark(pttacg: &str, optimal_clicks: usize, max_states: usize, rule: StaticRule) -> f64 {
+fn benchmark(pttacg: &str, optimal_clicks: usize, max_states: usize) -> f64 {
     let board = load(pttacg);
     let start = std::time::Instant::now();
-    let result = doms::solve_board_with_rule(&board, rule, max_states, &mut |_| {}).expect("DOMS solves the board");
+    let result = doms::solve_board(&board, max_states, &mut |_| {}).expect("DOMS solves the board");
     let seconds = start.elapsed().as_secs_f64();
     assert_eq!(result.total_clicks, optimal_clicks, "optimal clicks for {}", pttacg);
-    println!("{:?} {:>8.3}s {:?}", rule, seconds, result.stats);
+    println!("{:>8.3}s {:?}", seconds, result.stats);
+    println!("  prune time: {}", result.stats.prune_times);
+    println!("  dp time: {}", result.stats.dp_times);
     seconds
 }
 
-const RULES: [StaticRule; 2] = [StaticRule::Witness, StaticRule::StrongSwap];
+/// Solve one board supplied through `DOMS_BOARD` and print the DP progress and diagnostics.
+/// From `wasm/`, run for example:
+/// `DOMS_BOARD='https://llamasweeper.com/#/game/zini-explorer?b=3&m=...' cargo test --release --test doms_tests board_from_env -- --ignored --nocapture --test-threads=1`
+#[test]
+#[ignore]
+fn board_from_env() {
+    let pttacg = match std::env::var("DOMS_BOARD") {
+        Ok(pttacg) if !pttacg.trim().is_empty() => pttacg,
+        _ => {
+            println!("No board supplied. Set DOMS_BOARD to a PTTACG string or board URL to solve one.");
+            return;
+        }
+    };
+    let board = load(&pttacg);
+    println!(
+        "Board: {}x{}, {} mines, {} 3BV\nPTTACG: {}",
+        board.width,
+        board.height,
+        board.mine_count,
+        board.info.bbbv,
+        board.generate_pttacg()
+    );
+
+    let start = std::time::Instant::now();
+    let result = doms::solve_board(&board, 20_000_000, &mut |event| match event {
+        DomsProgress::Plan { cut_widths } => println!("DP plan cut widths: {:?}", cut_widths),
+        DomsProgress::Layer { processed, total, states } => {
+            println!("DP layer {}/{}: {} states", processed, total, states);
+        }
+        DomsProgress::Path { .. } => {}
+    })
+    .expect("DOMS solves the supplied board");
+
+    println!("Solved in {:.3}s", start.elapsed().as_secs_f64());
+    println!("Result: {} clicks; stats: {:?}", result.total_clicks, result.stats);
+    println!("  prune time: {}", result.stats.prune_times);
+    println!("  dp time: {}", result.stats.dp_times);
+    println!("Click sequence (type, x, y):");
+    for click in result.clicks {
+        println!(
+            "  {}: {:?}, {}, {}",
+            click.number, click.c_type, click.square.col, click.square.row
+        );
+    }
+}
+
+/// Pruning diagnostics summed over a benchmark's boards.
+#[derive(Default)]
+struct PruningTotals {
+    total_states: usize,
+    reverse_dominated: usize,
+    reverse_max_comparisons: u64,
+    reverse_limited_layers: usize,
+    dominance_limited_layers: usize,
+    prune_times: doms::PruneTimes,
+    dp_times: doms::DpTimes,
+}
+
+impl PruningTotals {
+    fn add(&mut self, stats: &doms::DomsStats) {
+        self.total_states += stats.total_states;
+        self.reverse_dominated += stats.reverse_dominated;
+        self.reverse_max_comparisons = self.reverse_max_comparisons.max(stats.reverse_max_comparisons);
+        self.reverse_limited_layers += stats.reverse_limited_layers;
+        self.dominance_limited_layers += stats.dominance_limited_layers;
+        self.prune_times.add(&stats.prune_times);
+        self.dp_times.add(&stats.dp_times);
+    }
+}
+
+impl std::fmt::Display for PruningTotals {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        write!(
+            f,
+            "total states {}, reverse dominated {}, reverse max comparisons per layer {}, reverse-limited layers {}, pass 1/2-limited layers {}\n  prune time: {}\n  dp time: {}",
+            self.total_states,
+            self.reverse_dominated,
+            self.reverse_max_comparisons,
+            self.reverse_limited_layers,
+            self.dominance_limited_layers,
+            self.prune_times,
+            self.dp_times
+        )
+    }
+}
 
 // Run with `cargo test --release --test doms_tests -- --ignored --nocapture --test-threads=1`
 #[test]
 #[ignore]
 fn benchmark_reference_boards() {
-    for rule in RULES {
-        let total: f64 = REFERENCE_BOARDS
-            .iter()
-            .map(|&(pttacg, optimal_clicks, _)| benchmark(pttacg, optimal_clicks, DEFAULT_MAX_STATES, rule))
-            .sum();
-        println!("reference boards total with {:?}: {:.3}s", rule, total);
-    }
+    let total: f64 = REFERENCE_BOARDS
+        .iter()
+        .map(|&(pttacg, optimal_clicks, _)| benchmark(pttacg, optimal_clicks, DEFAULT_MAX_STATES))
+        .sum();
+    println!("reference boards total: {:.3}s", total);
 }
 
 #[test]
 #[ignore]
 fn benchmark_slow_board() {
-    for rule in RULES {
-        benchmark(SLOW_BOARD.0, SLOW_BOARD.1, 20_000_000, rule);
-    }
+    benchmark(SLOW_BOARD.0, SLOW_BOARD.1, 20_000_000);
 }
 
 #[test]
 #[ignore]
 fn benchmark_random_expert_boards() {
-    for rule in RULES {
-        benchmark_random_boards(rule, "expert", 30, 16, 99, 100, 20261004);
-    }
+    benchmark_random_boards("expert", 30, 16, 99, 100, 20261004);
 }
 
 #[test]
 #[ignore]
 fn benchmark_random_small_boards() {
-    for rule in RULES {
-        benchmark_random_boards(rule, "beginner", 9, 9, 10, 1000, 20261008);
-        benchmark_random_boards(rule, "intermediate", 16, 16, 40, 1000, 20261009);
-    }
+    benchmark_random_boards("beginner", 9, 9, 10, 1000, 20261008);
+    benchmark_random_boards("intermediate", 16, 16, 40, 1000, 20261009);
 }
 
 fn benchmark_random_boards(
-    rule: StaticRule,
     label: &str,
     width: usize,
     height: usize,
@@ -356,22 +434,22 @@ fn benchmark_random_boards(
     let mut timings = Vec::with_capacity(board_count);
     let mut removed = 0;
     let mut static_seconds = 0.0;
+    let mut pruning = PruningTotals::default();
 
     for _ in 0..board_count {
         let board = random_board(&mut rng, width, height, mine_count);
         let start = std::time::Instant::now();
-        let result = doms::solve_board_with_rule(&board, rule, DEFAULT_MAX_STATES, &mut |_| {})
-            .expect("DOMS solves the board");
+        let result = doms::solve_board(&board, DEFAULT_MAX_STATES, &mut |_| {}).expect("DOMS solves the board");
         timings.push(start.elapsed().as_secs_f64());
         removed += result.stats.static_removed;
         static_seconds += result.stats.static_pass_seconds;
+        pruning.add(&result.stats);
     }
 
     timings.sort_by(|a, b| a.partial_cmp(b).unwrap());
     let total: f64 = timings.iter().sum();
     println!(
-        "{:?}, {} random {} boards: total {:.3}s (static pass {:.3}s), mean {:.3}s, median {:.3}s, slowest {:.3}s, candidates removed {}",
-        rule,
+        "{} random {} boards: total {:.3}s (static pass {:.3}s), mean {:.3}s, median {:.3}s, slowest {:.3}s, candidates removed {}",
         board_count,
         label,
         total,
@@ -381,6 +459,7 @@ fn benchmark_random_boards(
         timings[board_count - 1],
         removed
     );
+    println!("  pruning: {}", pruning);
 }
 
 /// "Evil 199" board (optimal clicks, 3BV).
@@ -395,9 +474,7 @@ const EVIL_199_BOARD: (&str, usize, usize) = (
 fn benchmark_evil_199_board() {
     let (pttacg, optimal_clicks, bbbv) = EVIL_199_BOARD;
     assert_eq!(load(pttacg).info.bbbv as usize, bbbv, "3BV for {}", pttacg);
-    for rule in RULES {
-        benchmark(pttacg, optimal_clicks, 20_000_000, rule);
-    }
+    benchmark(pttacg, optimal_clicks, 20_000_000);
 }
 
 /// Community-scraped expert boards with very high efficiency potential, one per line:
@@ -407,15 +484,10 @@ const COMMUNITY_EXPERT_BOARDS: &str = include_str!("data/community_expert_boards
 #[test]
 #[ignore]
 fn benchmark_community_expert_boards() {
-    for rule in RULES {
-        benchmark_community_expert_boards_with(rule);
-    }
-}
-
-fn benchmark_community_expert_boards_with(rule: StaticRule) {
     let mut timings: Vec<(f64, &str)> = Vec::new();
     let mut static_seconds = 0.0;
     let mut removed = 0;
+    let mut pruning = PruningTotals::default();
     for line in COMMUNITY_EXPERT_BOARDS.lines().filter(|line| !line.trim().is_empty()) {
         let fields: Vec<&str> = line.split_whitespace().collect();
         let (pttacg, optimal_clicks, bbbv): (&str, usize, usize) =
@@ -423,11 +495,11 @@ fn benchmark_community_expert_boards_with(rule: StaticRule) {
         let board = load(pttacg);
         assert_eq!(board.info.bbbv as usize, bbbv, "3BV for {}", pttacg);
         let start = std::time::Instant::now();
-        let result =
-            doms::solve_board_with_rule(&board, rule, 20_000_000, &mut |_| {}).expect("DOMS solves the board");
+        let result = doms::solve_board(&board, 20_000_000, &mut |_| {}).expect("DOMS solves the board");
         timings.push((start.elapsed().as_secs_f64(), pttacg));
         static_seconds += result.stats.static_pass_seconds;
         removed += result.stats.static_removed;
+        pruning.add(&result.stats);
         assert_eq!(result.total_clicks, optimal_clicks, "optimal clicks for {}", pttacg);
     }
 
@@ -435,8 +507,7 @@ fn benchmark_community_expert_boards_with(rule: StaticRule) {
     timings.sort_by(|a, b| a.0.partial_cmp(&b.0).unwrap());
     let median = timings[timings.len() / 2].0;
     println!(
-        "{:?}, {} community boards: total {:.3}s (static pass {:.3}s), mean {:.3}s, median {:.3}s, candidates removed {}",
-        rule,
+        "{} community boards: total {:.3}s (static pass {:.3}s), mean {:.3}s, median {:.3}s, candidates removed {}",
         timings.len(),
         total,
         static_seconds,
@@ -444,6 +515,7 @@ fn benchmark_community_expert_boards_with(rule: StaticRule) {
         median,
         removed
     );
+    println!("  pruning: {}", pruning);
     println!("slowest:");
     for &(seconds, pttacg) in timings.iter().rev().take(5) {
         println!("{:>8.3}s {}", seconds, pttacg);

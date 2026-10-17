@@ -26,7 +26,7 @@ import { Dialog } from "quasar";
 
 import {
   showStatsBlock,
-  tileSizeSlider,
+  effectiveTileSize,
   boardWidth,
   boardHeight,
   boardMines,
@@ -119,7 +119,7 @@ class Board {
     this.width = boardWidth.value;
     this.height = boardHeight.value;
     this.mineCount = boardMines.value;
-    this.tileSize = tileSizeSlider.value;
+    this.tileSize = effectiveTileSize.value;
     this.variant = variant.value;
 
     if (this.variant === "practice") {
@@ -1037,7 +1037,7 @@ class Board {
           this.ziniExplore.runDefaultAlgorithm(false);
         } else {
           //DOMS
-          this.ziniExplore.runDomsZini(true);
+          this.ziniExplore.runDomsZini(false);
         }
       }, 100);
     }

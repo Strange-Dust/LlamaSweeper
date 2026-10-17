@@ -342,6 +342,7 @@ import {
   filterStyleProperty,
   practiceResults,
   resetTransientSettings,
+  pixelScale,
 } from "src/composables/useSettings";
 
 defineOptions({
@@ -540,6 +541,10 @@ watch(
     }
   }
 );
+
+watch(pixelScale, () => {
+  game.refreshSize();
+});
 
 const vFocus = {
   //directive for focussing an element when mounted, currently unused, because we use autofocus prop for q-input instead

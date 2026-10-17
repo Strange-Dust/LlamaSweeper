@@ -16,7 +16,7 @@
         <p class="small">
           The boards, numbers, optimal solutions and example DP states are all computed in the page by <code>doms-model.js</code>, a small JavaScript copy
           of the DOMS model. Nothing is typed in by hand, so every number on every board matches its mines. The toy DP has merging and pass-1 dominance
-          but not pass 2 or the comparison cap. The self-check at the bottom compares it against brute force.
+          but not passes 2 and 3 or the comparison caps. The self-check at the bottom compares it against brute force.
         </p>
       </header>
 
@@ -98,6 +98,10 @@
         When everything is decided the total is exactly clicks(S).
       </p>
       <div data-diagram="step"></div>
+      <p class="note">
+        Not every state needs both children. A few cheap tests can prove that chording the candidate can never beat leaving it out, and then only the skip child is
+        built (<a href="#sibling-rules">3.10</a> and <a href="#exchange-rule">3.11</a>).
+      </p>
 
       <h3>1.8 Merging identical states</h3>
       <p>
@@ -137,6 +141,73 @@
       </p>
       <div data-diagram="pass2-cost"></div>
 
+      <h3 id="pass3">1.10b Dominance, pass 3: finer chains dominating coarser</h3>
+      <p>
+        Pass 2 only lets a state with <em>coarser</em> chains remove one with finer chains. The reverse can be sound too, when the finer state is far enough
+        ahead. Picture a chain that wanders through the already-decided region and pokes out at the top and the bottom of the frontier. Only a chain with
+        the same shape, but broader, could dominate it in pass 2. A state whose chains poke out in the same two places as <em>separate</em> pieces, without the
+        costly path between them, is often much cheaper, and that lead can be enough to remove the wandering one.
+      </p>
+      <p>
+        The catch is seeds. Every unfinished chain costs one seed click when it finishes, unless a later chord joins it to something. The coarse state B has
+        already been joined; the fine state A might never be. In the worst case the future never links A's extra pieces, so A pays one more seed for each
+        extra chain. That number is the <b>charge</b>, and it is the most A can lose. A dominates B when the lead covers the factor penalty and the charge:
+      </p>
+      <p class="note">
+        cost(B) − cost(A) ≥ factor penalty(A, B) + (chains of A − chains of B)
+      </p>
+      <p>The factor penalty is the same one passes 1 and 2 use.</p>
+      <div data-diagram="pass3"></div>
+      <p>
+        <b>The chains have to split exactly.</b> A charge of one seed per extra chain only holds when B's chains are exactly A's chains grouped together: each
+        of A's chains lies inside exactly one of B's chains, and each of B's chains is exactly the union of the A chains inside it. Then any later chord that
+        touches a B chain also touches one of its pieces, so every link the future makes between B's chains also links their pieces in A. A can only be behind
+        by the pieces within one B chain that the future leaves apart.
+      </p>
+      <p>
+        This is not pass 2's test run backwards. Containment plus a matching is not enough when chains overlap, and the table below shows two overlapping
+        cases where A really could lose more than the charge. An A chain that fits inside two B chains is rejected too, because the future could attach it to
+        either. Rejecting a pair is always safe: the state is just left alone.
+      </p>
+      <div data-diagram="pass3-exact"></div>
+      <p>
+        <b>Why it can't delete everything.</b> Pass 2 lets states it has already removed keep acting as dominators until the scan finishes, which is safe
+        because every pass 2 edge goes from a state with fewer chains to one with more. Pass 3 adds edges the other way. Each needs a cost lead of at least
+        its charge, which is at least 1. Going around a loop of dominations, the cost leads must add up to zero, so no loop can contain a pass 3 edge. Every
+        removed state therefore still has a surviving state that is at least as good, and the optimum stays exact.
+      </p>
+      <p>
+        <b>Keeping it cheap.</b> Pass 3 runs after pass 2 and reuses its data: the buckets of equal total reach, the signatures grouped by chain count (now
+        scanned for <em>more</em> chains instead of fewer), the sorted chain reach sizes, and the quasi-scores. The targets are the pass 1 survivors that pass 2
+        did not remove. The filters are pass 2's turned around, each with the charge included:
+      </p>
+      <table class="facts">
+        <tr><th>filter</th><th>what it proves</th></tr>
+        <tr><td>same bucket</td><td>an exact split has the same total reach on both sides</td></tr>
+        <tr><td>strictly more chains</td><td>with equal counts an exact split is the same signature, which pass 1 already handled</td></tr>
+        <tr><td>sort key</td><td>the dominator's <code>cost + 3BV hits</code> plus its charge cannot exceed the target's, so the scan can stop early</td></tr>
+        <tr><td>quasi-score</td><td>the factor bound plus the charge already exceeds the cost lead</td></tr>
+        <tr><td>reach sizes</td><td>every fine chain sits inside a coarse chain, so the largest and smallest fine chains are no bigger than the coarse ones</td></tr>
+        <tr><td>one coarse chain</td><td>inside a bucket one chain is exactly the union of every fine chain, so no test is needed</td></tr>
+        <tr><td>exact split test</td><td>the final check, run last</td></tr>
+      </table>
+      <p>
+        Pass 3 has its own budget of 500,000 comparisons per layer, separate from the 10,000,000 of passes 1 and 2 (<a href="#limits">1.14</a>). It can neither
+        use up their budget nor be starved by it. Like theirs, it only affects how many states survive, never the answer.
+      </p>
+      <p>
+        <b>What it buys.</b> These numbers were measured in the Rust solver with the default static rule, with pass 3 off and on. This page's toy DP has
+        no pass 3, so they are not computed here.
+      </p>
+      <table class="facts">
+        <tr><th>boards</th><th>time, pass 3 off</th><th>time, pass 3 on</th><th>states over all layers, off → on</th></tr>
+        <tr><td>evil 199 board</td><td>9.6 s</td><td>1.8 s</td><td>7.1M → 1.6M</td></tr>
+        <tr><td>99 community expert boards</td><td>35.1 s</td><td>12.8 s</td><td>39.8M → 14.9M</td></tr>
+        <tr><td>100 random expert boards</td><td>4.8 s</td><td>2.0 s</td><td>4.8M → 2.2M</td></tr>
+        <tr><td>1000 random intermediate boards</td><td>2.85 s</td><td>2.34 s</td><td>2.6M → 1.7M</td></tr>
+      </table>
+      <p class="small">Pass 3 itself takes about 6–9% of the solve time on the first three sets.</p>
+
       <h3>1.11 What merging and pruning buy</h3>
       <div data-diagram="layers"></div>
 
@@ -157,7 +228,7 @@
       <h3 id="limits">1.14 State limit and comparison cap</h3>
       <p>
         Two different limits protect the solver from spending unbounded time or memory. The normal defaults are a maximum of <b>2,000,000 live states
-        in one layer</b> and a budget of <b>1,000,000 state-to-state dominance comparisons in one pruning pass</b>. They control resources, not the
+        in one layer</b> and a budget of <b>10,000,000 state-to-state dominance comparisons in one pruning pass</b>. They control resources, not the
         mathematical objective.
       </p>
       <p>
@@ -169,6 +240,9 @@
         the solver simply stops attempting more comparisons and keeps the states it has not checked. That can leave more states for later layers and make
         the solve slower or reach the state limit sooner, but it cannot remove a state that might be better. A completed solve therefore remains exact;
         the cap limits pruning work, not answer quality.
+      </p>
+      <p>
+        Pass 3 (<a href="#pass3">1.10b</a>) has its own separate budget, so it cannot use up the one for passes 1 and 2. It too only affects how many states survive.
       </p>
       <div data-diagram="limits"></div>
 
@@ -246,6 +320,7 @@
         each layer: if a later partner covers the relevant reveals and factor differences are already paid, the chorded child is skipped.
       </p>
       <div data-diagram="blindspot"></div>
+      <p class="note">The runtime version of this argument is described in <a href="#exchange-rule">3.11</a>.</p>
 
       <h3>3.2 Rule A: the swap rule (applied statically, exact)</h3>
       <p>Remove candidate c before the DP runs if some other remaining candidate d satisfies all three of:</p>
@@ -455,6 +530,10 @@
       </p>
       <div data-diagram="cancel"></div>
       <div data-diagram="cancel-chart"></div>
+      <p class="note">
+        The same red/green matching is used inside the forced-skip bound (<a href="#sibling-cancel">3.10b</a>), which is where it is applied in the Rust solver today.
+        The pruning version shown here is not in the Rust solver.
+      </p>
 
       <h3>3.7 Coarser chains with more reach</h3>
       <p>
@@ -464,6 +543,9 @@
         sibling pair at transition time, where the bits are already computed.
       </p>
       <div data-diagram="superset"></div>
+      <p class="note">
+        The sibling-only version of this idea (chord c against not chording c, which was called forced chord) was tried and removed; see <a href="#rejected">3.13</a>.
+      </p>
 
       <h3>3.8 Chains that can only cost a seed</h3>
       <p>
@@ -475,12 +557,148 @@
       <div data-diagram="liability-chain"></div>
 
       <h3>3.9 Seed slack: the general form</h3>
+      <p>
+        <a href="#pass3">Pass 3</a> implements the simplest special case. The chains are an exact split, so only the "+1 per extra A chain" charge is left and
+        no B chain is uncovered. The general form below also tolerates B chains that no A chain covers, which needs comparisons between signatures with
+        different total reach. The buckets cannot index those, so that part is not implemented.
+      </p>
       <div data-diagram="seed-slack"></div>
+      <p class="note">
+        The sibling-only form of the α charge is used by the forced-skip rule (<a href="#sibling-rules">3.10</a>).
+      </p>
 
-      <h3>3.10 Try them together</h3>
+      <h3 id="sibling-rules">3.10 Forced skip: the chord child that can never win (applied dynamically, exact)</h3>
+      <p>
+        When the DP decides candidate c it turns each parent state into two children, "skip c" and "chord c". Often the parent already contains enough information to
+        prove that chording c cannot beat skipping it, whatever the rest of the solution looks like. Then the chord child is simply not built. This is different from
+        dominance (1.9 to 1.10b): dominance compares two states that already exist, while this rule looks at one parent and decides which of its children to create.
+        It is also different from the static rules (3.2 to 3.3), which have to hold for every history, whereas this one can use what this particular state has already paid.
+      </p>
+      <div data-diagram="sibling-flow"></div>
+
+      <h4>The bound</h4>
+      <p>
+        Take any set F of later chords, and compare the best finish that chords c as well as F against the one that chords only F. Using the cost accounting of 1.7,
+        the difference is the sum of four things:
+      </p>
+      <ul>
+        <li><b>+1</b> for the chord click.</li>
+        <li>
+          <b>Mines.</b> c needs some flags. Those already placed cost nothing more. Of the rest, F might flag some, but a mine that <em>no later candidate</em> can flag
+          (a <b>private</b> mine) must be paid for by c. So at least <i>private</i> extra flags.
+        </li>
+        <li>
+          <b>Units.</b> Chording c solves units, each saving a left click. The most it can save is every unit of c that is not yet solved in this state, so subtract <i>unhit units</i>.
+        </li>
+        <li>
+          <b>Chains.</b> Seeds are paid once per connected group of chords (1.3). Adding c starts a new group, +1, but it also joins every group it touches: the chains that can still
+          reach c, and the groups of later chords that c reveals. So the group count changes by at least 1 − (<i>chains</i> + α).
+        </li>
+      </ul>
+      <p class="note">slack = 2 + private − unhit units − chains − α</p>
+      <p>
+        The 2 is the chord click plus the new group c would start. If slack ≥ 0, chording c never saves clicks compared to skipping it, for every possible F, so the chord child is dropped.
+      </p>
+      <div data-diagram="sibling-components"></div>
+      <p>
+        α is the number of components of later chords that c could touch. Two later candidates that reveal each other end up in the same group, so only candidates that
+        do <em>not</em> reveal each other can be separate groups. α is therefore the size of the largest set of c's later reveals in which no two reveal each other (found by a small
+        search, at most 24 reveals; above that α is just the number of reveals).
+      </p>
+      <div data-diagram="forced-skip"></div>
+
+      <h4 id="sibling-alpha">3.10a α from this state's chains</h4>
+      <p>
+        The α above is the same for every state, so it has to assume that every later reveal of c might be a separate group. A particular state knows more. If a later reveal of c lies
+        inside the reach of a chain that can already reach c, then chording it in the future joins that chain whether or not c is chorded. That chain is already counted in the
+        chains term, so the reveal cannot be an extra separate group. The solver therefore removes those reveals before looking for the largest independent set, giving a smaller α
+        and a larger slack. The result is computed once per connectivity signature, so every state with the same chains shares it.
+      </p>
+      <div data-diagram="alpha-signature"></div>
+
+      <h4 id="sibling-cancel">3.10b Cancelling a mine against a unit</h4>
+      <p>
+        The bound lets the future flag all of c's non-private mines for free and also solve all of c's units. Those two assumptions can contradict each other. Suppose a mine
+        of c is flagged only by later candidates that also solve one of c's units. If the future flags that mine for free, it also solves that unit, so the unit cannot be counted
+        as gained by c. Putting the pair together, the pair is worth at least 0 to the chord, not the −1 the plain bound used.
+      </p>
+      <p>
+        So before giving up, the solver matches each unhit mine of c to a distinct unhit unit of c, for mines and units that are still active after c (a factor c is the last
+        candidate to touch is already settled), where every later candidate that can flag the mine also solves the unit. If the number of matched pairs is at least −slack,
+        the chord child is dropped. This is the matching of 3.6, but applied to the two factors of one candidate inside the bound, not to two states. The matching is greedy, so it
+        can miss a pairing a better matching would find; that only costs speed.
+      </p>
+      <div data-diagram="cancel-pair"></div>
+
+      <details>
+        <summary>Why this is exact</summary>
+        <p>
+          For every F, the chord-minus-skip cost difference is at least slack. Each term uses a bound that holds for every F: private mines are paid by c whatever F is, unhit
+          units are the most c can solve, and the group count drops by at most the number of groups c touches. For the pairs, a mine is paid by c exactly when F does not flag it, and a unit is gained exactly
+          when F does not solve it; because every candidate that flags the mine solves the unit, "F misses the unit" implies "F misses the mine", so the pair contributes at least 0 for every F.
+          Different pairs use different factors, so they add. If the bound is ≥ 0, no completion that chords c is cheaper than the same completion without c, and that completion
+          still belongs to the skip child, which is always built. The skip child is never dropped by this rule, so the optimum from the parent is unchanged.
+        </p>
+      </details>
+      <p>
+        Checking these rules costs a few popcounts per state and the matching only when the plain bound fails. In testing, adding the sibling rules (forced skip and exchange) cut the total time on the
+        community expert boards by roughly 15%, although the saving is mostly children that pruning would have removed a moment later anyway, so peak state counts barely move.
+      </p>
+
+      <h3 id="exchange-rule">3.11 Exchange: letting a later chord stand in for c (applied dynamically, exact)</h3>
+      <p>
+        The swap rule (3.2) removes c for good when some d does everything c does for no more flags. It has to hold for every history, so it only fires when d is better on every count.
+        The exchange rule is its runtime version: it only needs d to be no worse <em>given what this state has already paid for</em>. When it holds, the chord child for c is dropped, because any finish
+        that chords c can be turned into one that chords d instead (or, if d was chorded anyway, nothing instead of c) at no extra cost.
+      </p>
+      <p>The partner d has to be a later candidate, so the replacement is still an open decision. The rule fires for a state when some partner d passes three conditions:</p>
+      <ol>
+        <li><b>d reveals what c reveals.</b> Every later candidate that c reveals, apart from d itself, is also revealed by d. This does not depend on the state, so it is decided once while setting up.</li>
+        <li><b>The chains that reach c reach d.</b> Every chain in this state that can still reveal c can also reveal d. This depends on the state's chains and is computed once per connectivity signature.</li>
+        <li>
+          <b>The factor differences are already paid.</b> The mines d needs that c doesn't, and the units c solves that d doesn't, have all been hit already in this state. Then swapping adds no flag and loses no unit.
+        </li>
+      </ol>
+      <div data-diagram="exchange-conditions"></div>
+      <p>
+        Condition 3 is what makes this a runtime rule. A mine of d that c doesn't need might not be flagged in some history, in which case swapping would cost a flag; in another history the same
+        mine was already flagged by an earlier chord and the swap is free.
+      </p>
+      <div data-diagram="exchange-state"></div>
+      <details>
+        <summary>Why this is exact</summary>
+        <p>
+          Take any set S that chords c and any state it passes through. If d is also in S, drop c. Otherwise swap c for d. The chord count does not rise. Flags: any mine d adds is already flagged by an earlier chord (condition 3), and
+          mines only c needed are no longer needed. Units: any unit that c solved and d does not was already solved by an earlier chord (condition 3), and units only d solves are extra gains. Seeds: a group that c joined is
+          either an earlier chain that reaches c, which also reaches d (condition 2), or a later chord that c reveals, which d also reveals (condition 1), so d joins every group that c did and the group count cannot rise. So the new
+          set costs no more, and it is a completion of the skip child, which is always built.
+        </p>
+      </details>
+      <p>
+        Partners are only searched within reveal distance 2 of c, at most 64 per candidate, and a partner is dropped up front if it needs a factor that no earlier candidate can have hit, since condition 3 could never hold.
+        The solver tries forced skip first, then exchange; a state's chord child is dropped at most once, by the first rule that proves it.
+      </p>
+
+      <h4>Extensions that were tried and not kept</h4>
+      <p>
+        Two strengthenings of the exchange rule were implemented and tried, but are not in the solver. They were not kept for reasons that can no longer be remembered, but probably because the benchmarks were poor.
+        Both appeared sound on paper.
+      </p>
+      <ul>
+        <li>
+          <b>Cancellation among the factor differences.</b> Condition 3 requires every difference to be hit already. A cost of the swap (a mine only d needs, or a unit only c solves) that is not yet paid could instead be matched
+          against a saving the swap also brings (a mine only c needs, or a unit only d solves), whenever every later candidate that gains the saving also gains the cost's factor. This is the pairing of 3.10b applied to the exchange.
+        </li>
+        <li>
+          <b>Signature-specific reveal coverage.</b> Condition 1 requires d to reveal everything c reveals. A later reveal of c that already lies inside the reach of a chain that reaches c stays attached to that chain
+          through condition 2, so d would only need to reveal the rest. This is the same idea as 3.10a.
+        </li>
+      </ul>
+
+      <h3>3.12 Try them together</h3>
       <div data-diagram="experiment"></div>
 
-      <h3>3.11 Ideas considered and rejected</h3>
+      <h3 id="rejected">3.13 Ideas considered and rejected</h3>
       <table class="facts">
         <tr>
           <th>idea</th>
@@ -489,6 +707,13 @@
         <tr>
           <td>"always chord c" rules</td>
           <td>Only provable when a 3BV unit can be solved by c alone. That almost never happens at 20% density, since islands are solved by themselves and all their numbered neighbours.</td>
+        </tr>
+        <tr>
+          <td>forced chord: skip the <em>skip</em> child when chording c is never worse</td>
+          <td>
+            The mirror of forced skip (3.10): chording c can be proved no worse than skipping when 2 + (unhit mines of c) − chains − (units only c can still solve) ≤ 0. It was implemented
+            and measured, and made no useful difference (community expert boards on one thread, about 55.9 s with every rule and 54.8 s without it). It is the sibling-only form of 3.7.
+          </td>
         </tr>
         <tr>
           <td>history-dependent "never chord both c and d" rules</td>
@@ -509,6 +734,13 @@
         <tr>
           <td>"never chord an 8" style rules</td>
           <td>Too rare to matter, and the DP already discards them almost immediately.</td>
+        </tr>
+        <tr>
+          <td>capping the charge in pass 3 (for example only charge 1)</td>
+          <td>
+            Nearly all removals have charge 1, but the rare charge 2 ones each cut off a whole line of descendants. Allowing only charge 1 left 36% more states
+            on the evil board and ran about 1.7 times slower. Allowing 2 changed nothing measurable, and pass 3 is only 6–9% of the solve time anyway.
+          </td>
         </tr>
       </table>
 
