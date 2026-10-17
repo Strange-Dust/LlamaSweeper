@@ -98,7 +98,7 @@ class RawVF {
       if (clickNext) {
         //Take the current click and increment
         events += useButtonEvents
-          ? this.getButtonEventLine(maybeClick)
+          ? this.getButtonEventLine(maybeClick, boardWidth, boardHeight)
           : this.getMouseClickEventLine(
               maybeClick,
               boardWidth,
@@ -267,8 +267,9 @@ class RawVF {
 
     const eventId = typeMap[click.type];
 
-    const col = Utils.clamp(click.x, 0, boardWidth - 1);
-    const row = Utils.clamp(click.y, 0, boardHeight - 1);
+    //Cell coordinates in RawVF are 1-based (pixel coordinates are 0-based)
+    const col = Utils.clamp(click.x, 0, boardWidth - 1) + 1;
+    const row = Utils.clamp(click.y, 0, boardHeight - 1) + 1;
 
     const coordX = Utils.clamp(
       Math.floor(click.xRaw * RAWVF_SQUARE_SIZE),
@@ -288,7 +289,12 @@ class RawVF {
     return event;
   }
 
-  static getButtonEventLine(buttonEvent) {
+  //RawVF cell coordinates are 1-based, and 0 means off the grid
+  static toCellCoordinate(tileIndex, size) {
+    return tileIndex >= 0 && tileIndex < size ? tileIndex + 1 : 0;
+  }
+
+  static getButtonEventLine(buttonEvent, boardWidth, boardHeight) {
     const typeMap = {
       left: ["lc", "lr"],
       right: ["rc", "rr"],
@@ -301,9 +307,12 @@ class RawVF {
     const eventId = typeMap[buttonEvent.button][buttonEvent.isDown ? 0 : 1];
     const elapsedTime = buttonEvent.time.toFixed(3);
 
-    //Deliberately unclamped so off-board presses/releases aren't mistaken for edge tile clicks
-    const col = Math.floor(buttonEvent.xRaw);
-    const row = Math.floor(buttonEvent.yRaw);
+    //Deliberately not clamped so off-board presses/releases aren't mistaken for edge tile clicks (they are cell 0)
+    const col = this.toCellCoordinate(Math.floor(buttonEvent.xRaw), boardWidth);
+    const row = this.toCellCoordinate(
+      Math.floor(buttonEvent.yRaw),
+      boardHeight
+    );
     const coordX = Math.floor(buttonEvent.xRaw * RAWVF_SQUARE_SIZE);
     const coordY = Math.floor(buttonEvent.yRaw * RAWVF_SQUARE_SIZE);
 
@@ -318,8 +327,8 @@ class RawVF {
 
     const elapsedTime = move.time.toFixed(3);
 
-    const col = Utils.clamp(Math.floor(move.xRaw), 0, boardWidth - 1);
-    const row = Utils.clamp(Math.floor(move.yRaw), 0, boardHeight - 1);
+    const col = Utils.clamp(Math.floor(move.xRaw), 0, boardWidth - 1) + 1;
+    const row = Utils.clamp(Math.floor(move.yRaw), 0, boardHeight - 1) + 1;
 
     const coordX = Utils.clamp(
       Math.floor(move.xRaw * RAWVF_SQUARE_SIZE),
@@ -454,7 +463,7 @@ class RawVF {
           items.push({
             time: event.time,
             priority: 0,
-            text: this.getButtonEventLine(event),
+            text: this.getButtonEventLine(event, round.width, round.height),
           });
         }
       } else {
@@ -494,7 +503,7 @@ class RawVF {
         for (let x = 0; x < round.width; x++) {
           for (let y = 0; y < round.height; y++) {
             if (previousStates[x][y] !== CONSTANTS.UNREVEALED) {
-              closeLines.push(`closed ${x} ${y}\n`);
+              closeLines.push(this.getBoardEventLine("closed", x, y));
             }
           }
         }
@@ -517,7 +526,7 @@ class RawVF {
         for (let y = 0; y < round.height; y++) {
           const eventId = this.getBoardEventId(round.initialTiles[x][y]);
           if (eventId && round.initialTiles[x][y] !== CONSTANTS.UNREVEALED) {
-            initialLines.push(`${eventId} ${x} ${y}\n`);
+            initialLines.push(this.getBoardEventLine(eventId, x, y));
           }
         }
       }
@@ -538,7 +547,9 @@ class RawVF {
           items.push({
             time: boardEvent.time + offset,
             priority: 3,
-            boardLines: [`${eventId} ${boardEvent.x} ${boardEvent.y}\n`],
+            boardLines: [
+              this.getBoardEventLine(eventId, boardEvent.x, boardEvent.y),
+            ],
           });
         }
       }
@@ -581,6 +592,11 @@ class RawVF {
     }
 
     return events;
+  }
+
+  //Board arrays here are 0-based, but RawVF cell coordinates are 1-based
+  static getBoardEventLine(eventId, tileX, tileY) {
+    return `${eventId} ${tileX + 1} ${tileY + 1}\n`;
   }
 
   static getBoardEventId(state, blastEndsGame = true) {
