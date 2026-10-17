@@ -18,6 +18,7 @@ export function computeMetrics(metricRefs, record) {
       label: ref.label ?? metric.label,
       unit: metric.unit,
       better: metric.better,
+      description: ref.description ?? metric.description ?? "",
       value: Number.isFinite(value) ? value : null,
     };
   });
@@ -53,6 +54,7 @@ export function summariseRounds(rounds) {
       label: first.label,
       unit: first.unit,
       better: first.better,
+      description: first.description,
       count: values.length,
       mean: values.reduce((sum, v) => sum + v, 0) / values.length,
       median: median(values),
@@ -70,8 +72,8 @@ export function formatMetricValue(value, unit) {
   switch (unit) {
     case "seconds":
       return `${Math.round(value * 1000)} ms`;
-    case "tiles":
-      return `${value.toFixed(2)} tiles`;
+    case "pixels":
+      return String(Math.round(value));
     case "percent":
       return `${value.toFixed(1)}%`;
     case "count":
@@ -89,8 +91,8 @@ export function formatMetricNumber(value, unit) {
   switch (unit) {
     case "seconds":
       return String(Math.round(value * 1000));
-    case "tiles":
-      return value.toFixed(2);
+    case "pixels":
+      return String(Math.round(value));
     case "percent":
       return value.toFixed(1);
     default:
@@ -98,6 +100,7 @@ export function formatMetricNumber(value, unit) {
   }
 }
 
+//Pixel paths are written as Path(n) with no unit, so only some units add a suffix to labels
 export function getMetricUnitLabel(unit) {
-  return { seconds: "ms", tiles: "tiles", percent: "%" }[unit] ?? "";
+  return { seconds: "ms", percent: "%" }[unit] ?? "";
 }

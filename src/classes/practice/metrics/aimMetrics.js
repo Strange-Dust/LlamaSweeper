@@ -58,7 +58,7 @@ function pathPoints(record) {
   return points;
 }
 
-function pathLength(points) {
+function pathLengthInTiles(points) {
   let total = 0;
   for (let i = 1; i < points.length; i++) {
     total += distance(points[i - 1], points[i]);
@@ -66,49 +66,16 @@ function pathLength(points) {
   return total;
 }
 
-export const reactionTime = {
-  id: "reactionTime",
-  label: "Reaction",
-  unit: "seconds",
-  better: "lower",
-  description: "Time from the board appearing until the cursor starts moving.",
-  compute(record, params = {}) {
-    if (!record.startCursor) {
-      return null;
-    }
-    const threshold = params.thresholdTiles ?? 0.1;
-    const firstMove = record.moves.find(
-      (m) =>
-        m.time >= 0 &&
-        distance(record.startCursor, { x: m.xRaw, y: m.yRaw }) > threshold
-    );
-    return firstMove ? firstMove.time : null;
-  },
-};
-
 export const timeToClick = {
   id: "timeToClick",
   label: "Time to click",
   unit: "seconds",
   better: "lower",
   description:
-    "Time from the board appearing until the round-completing click.",
+    "Time from the board appearing until the click that completed the round, measured at button release.",
   compute(record, params = {}) {
     const click = completingClick(record);
     return click ? clickTimeFor(record, click, params.timing) : null;
-  },
-};
-
-export const movementTime = {
-  id: "movementTime",
-  label: "Movement",
-  unit: "seconds",
-  better: "lower",
-  description: "Time to click minus reaction time.",
-  compute(record, params = {}) {
-    const reaction = reactionTime.compute(record, params);
-    const total = timeToClick.compute(record, params);
-    return reaction === null || total === null ? null : total - reaction;
   },
 };
 
@@ -117,49 +84,28 @@ export const misclicks = {
   label: "Misclicks",
   unit: "count",
   better: "lower",
-  description: "Clicks that did nothing (wasted clicks).",
+  description:
+    "Clicks that did nothing, such as clicking an already revealed square.",
   compute(record) {
     return record.clicks.filter((c) => c.type.startsWith("wasted")).length;
   },
 };
 
-export const cursorPathLength = {
-  id: "pathLength",
-  label: "Path length",
-  unit: "tiles",
+//Path is conventionally measured in pixels normalised to a 16px square size,
+//so it doesn't depend on the player's tile size. Positions are in tile units, so that's tiles * 16.
+const NORMALISED_SQUARE_SIZE = 16;
+
+export const normalisedPath = {
+  id: "path",
+  label: "Path(n)",
+  unit: "pixels",
   better: "lower",
-  description: "Distance the cursor travelled before the completing click.",
-  compute(record) {
-    const points = pathPoints(record);
-    return points ? pathLength(points) : null;
-  },
-};
-
-export const pathEfficiency = {
-  id: "pathEfficiency",
-  label: "Path efficiency",
-  unit: "percent",
-  better: "higher",
   description:
-    "Straight-line distance divided by the distance actually travelled.",
+    "Distance the cursor travelled between the board appearing and the completing click, in pixels normalised to a 16px square size.",
   compute(record) {
     const points = pathPoints(record);
-    if (!points) {
-      return null;
-    }
-    const travelled = pathLength(points);
-    if (travelled === 0) {
-      return null;
-    }
-    return (distance(points[0], points.at(-1)) / travelled) * 100;
+    return points ? pathLengthInTiles(points) * NORMALISED_SQUARE_SIZE : null;
   },
 };
 
-export default [
-  reactionTime,
-  timeToClick,
-  movementTime,
-  misclicks,
-  cursorPathLength,
-  pathEfficiency,
-];
+export default [timeToClick, misclicks, normalisedPath];

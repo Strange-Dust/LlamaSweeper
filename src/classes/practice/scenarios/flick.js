@@ -79,14 +79,7 @@ export default {
   },
   completion: { type: "all-safe-revealed" },
   onMine: "lose",
-  metrics: [
-    { type: "timeToClick" },
-    { type: "reactionTime" },
-    { type: "movementTime" },
-    { type: "misclicks" },
-    { type: "pathLength" },
-    { type: "pathEfficiency" },
-  ],
+  metrics: [{ type: "timeToClick" }, { type: "misclicks" }, { type: "path" }],
   rawvfMode: "Practice: Flick",
   options: [
     {

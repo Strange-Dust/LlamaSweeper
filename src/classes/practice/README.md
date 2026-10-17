@@ -11,11 +11,11 @@ Scenario logic belongs in this folder. `Board`, `BoardInput`, `BoardActions` and
 
 If the scenario needs new behaviour, add a building block and register it in `index.js`:
 
-| Block           | Folder        | Contract                                                                      |
-| --------------- | ------------- | ----------------------------------------------------------------------------- |
-| Generator       | `generators/` | `({ width, height, params, rng }) => { mines, initialTiles, targets, meta }`  |
-| Completion rule | `completion/` | `({ board, round, params }) => "won" \| "lost" \| null`                       |
-| Metric          | `metrics/`    | `{ id, label, unit, better, compute(roundRecord, params) => number \| null }` |
+| Block           | Folder        | Contract                                                                                                                            |
+| --------------- | ------------- | ----------------------------------------------------------------------------------------------------------------------------------- |
+| Generator       | `generators/` | `({ width, height, params, rng }) => { mines, initialTiles, targets, meta }`                                                        |
+| Completion rule | `completion/` | `({ board, round, params }) => "won" \| "lost" \| null`                                                                             |
+| Metric          | `metrics/`    | `{ id, label, unit, better, description, compute(roundRecord, params) => number \| null }` (`description` is the scorecard tooltip) |
 
 Grids use `grid[tileX][tileY]`. `initialTiles` values are tile states: a number (revealed), `CONSTANTS.UNREVEALED` or `CONSTANTS.FLAG`. `validateGeneratedBoard` rejects boards where a revealed `0` touches a hidden safe tile, because chording that zero would open the tile.
 
@@ -49,4 +49,4 @@ Any value can be `{ $option: "key" }` to use the user's choice for that option. 
 
 `gameStage` goes `practice-armed` → `practice-countdown` → `running` → `won`/`lost`, and then either the next round or the end of the set. Time 0 is the moment the board is revealed, so input during the countdown has negative timestamps.
 
-Each round produces a serialisable round record (`roundRecord.js`) containing the clicks, moves, button events, board events and metrics. Records are held in memory only. RawVF export (`RawVF.createPracticeRawVfText`) writes one section per round, with full board events.
+Each round produces a serialisable round record (`roundRecord.js`) containing the clicks, moves, button events, board events and metrics. The scorecard is shown once the whole set is complete. Records are held in memory only. RawVF export (`RawVF.createPracticeRawVfText`) writes one section per round, with full board events.

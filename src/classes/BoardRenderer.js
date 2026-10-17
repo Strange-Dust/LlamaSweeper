@@ -450,8 +450,12 @@ class BoardRenderer {
 
     ctx.fillStyle = skinManager.getMineTimerTextColour();
 
-    //Draw mine counter
-    if (showMineCount.value) {
+    //Draw mine counter (practice hides it until the board is revealed, as it would give away the mine count)
+    const isBoardHiddenInPractice =
+      this.board.variant === "practice" &&
+      (this.board.gameStage === "practice-armed" ||
+        this.board.gameStage === "practice-countdown");
+    if (showMineCount.value && !isBoardHiddenInPractice) {
       ctx.textAlign = "left";
       ctx.fillText(
         this.board.unflagged,

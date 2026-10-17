@@ -128,7 +128,7 @@
         />
 
         <PracticeScorecard
-          v-if="variant === 'practice' && practiceResults.rounds.length > 0"
+          v-if="variant === 'practice' && practiceResults.complete"
           class="side-panel"
         />
 

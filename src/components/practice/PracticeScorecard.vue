@@ -11,9 +11,11 @@
 
     <q-separator />
 
-    <q-card-section v-if="lastRound" class="q-py-sm">
+    <q-card-section v-if="isSingleRound && lastRound" class="q-py-sm">
       <div class="text-subtitle2 q-mb-xs">
-        Round {{ lastRound.index + 1 }}
+        <span class="practice-help"
+          >Result <PracticeTooltip>{{ tooltips.result }}</PracticeTooltip></span
+        >
         <q-badge
           class="q-ml-xs"
           :color="lastRound.outcome === 'won' ? 'positive' : 'negative'"
@@ -25,38 +27,55 @@
           color="warning"
           text-color="black"
           :label="`${lastRound.penalties} penalty`"
-        />
+        >
+          <PracticeTooltip>{{ tooltips.penalty }}</PracticeTooltip>
+        </q-badge>
       </div>
       <div
         v-for="metric in lastRoundMetrics"
         :key="metric.key"
         class="row justify-between"
       >
-        <span>{{ metric.label }}</span>
+        <span class="practice-help"
+          >{{ metric.label }}
+          <PracticeTooltip>{{ metric.description }}</PracticeTooltip></span
+        >
         <span class="practice-value">{{
           formatMetricValue(metric.value, metric.unit)
         }}</span>
       </div>
     </q-card-section>
 
-    <template v-if="results.summary && results.rounds.length > 1">
-      <q-separator />
+    <template v-if="results.summary && !isSingleRound">
       <q-card-section class="q-py-sm">
-        <div class="text-subtitle2">
+        <div class="text-subtitle2 practice-help">
           Summary ({{ results.summary.wins }}/{{ results.summary.total }} won)
+          <PracticeTooltip>{{ tooltips.summary }}</PracticeTooltip>
         </div>
         <q-markup-table dense flat class="practice-table q-mt-xs">
           <thead>
             <tr>
               <th class="text-left">Metric</th>
-              <th class="text-right">Mean</th>
-              <th class="text-right">Median</th>
-              <th class="text-right">Best</th>
+              <th class="text-right practice-help">
+                Mean
+                <PracticeTooltip>{{ tooltips.mean }}</PracticeTooltip>
+              </th>
+              <th class="text-right practice-help">
+                Median
+                <PracticeTooltip>{{ tooltips.median }}</PracticeTooltip>
+              </th>
+              <th class="text-right practice-help">
+                Best
+                <PracticeTooltip>{{ tooltips.best }}</PracticeTooltip>
+              </th>
             </tr>
           </thead>
           <tbody>
             <tr v-for="metric in summaryMetrics" :key="metric.key">
-              <td class="text-left">{{ labelWithUnit(metric) }}</td>
+              <td class="text-left practice-help">
+                {{ labelWithUnit(metric) }}
+                <PracticeTooltip>{{ metric.description }}</PracticeTooltip>
+              </td>
               <td class="text-right practice-value">
                 {{ formatMetricNumber(metric.mean, metric.unit) }}
               </td>
@@ -76,13 +95,17 @@
           <thead>
             <tr>
               <th class="text-left">#</th>
-              <th class="text-left">Result</th>
+              <th class="text-left practice-help">
+                Result
+                <PracticeTooltip>{{ tooltips.result }}</PracticeTooltip>
+              </th>
               <th
                 v-for="metric in results.rounds[0].metrics"
                 :key="metric.key"
-                class="text-right"
+                class="text-right practice-help"
               >
                 {{ labelWithUnit(metric) }}
+                <PracticeTooltip>{{ metric.description }}</PracticeTooltip>
               </th>
             </tr>
           </thead>
@@ -91,6 +114,10 @@
               <td class="text-left">{{ round.index + 1 }}</td>
               <td class="text-left">
                 {{ round.outcome === "won" ? "Won" : "Lost" }}
+                <PracticeTooltip v-if="round.penalties > 0"
+                  >{{ round.penalties }} penalty.
+                  {{ tooltips.penalty }}</PracticeTooltip
+                >
               </td>
               <td
                 v-for="metric in round.metrics"
@@ -109,6 +136,9 @@
 
     <q-card-section class="row justify-center q-gutter-sm screenshot-hidden">
       <q-btn-dropdown color="primary" label="Export">
+        <PracticeTooltip
+          >Save or analyse this set's replay data.</PracticeTooltip
+        >
         <q-list>
           <q-item clickable v-close-popup @click="downloadRawVf()">
             <q-item-section>
@@ -158,6 +188,14 @@
   font-family: monospace;
 }
 
+.practice-help {
+  cursor: help;
+}
+
+.practice-help:hover {
+  text-decoration: underline dotted;
+}
+
 .practice-table {
   background: transparent;
 }
@@ -173,6 +211,7 @@
 import { computed, inject } from "vue";
 import { Dialog } from "quasar";
 import StatsPanel from "src/components/StatsPanel.vue";
+import PracticeTooltip from "src/components/practice/PracticeTooltip.vue";
 import RawVF from "src/classes/RawVF";
 import {
   formatMetricValue,
@@ -199,16 +238,25 @@ const summaryMetrics = computed(
   () => results.value.summary?.metrics.filter((m) => m.count > 0) ?? []
 );
 
-const statusText = computed(() => {
-  const done = results.value.rounds.length;
-  const total = results.value.totalRounds;
-  if (results.value.complete) {
-    return total > 1
-      ? "Set complete. Press space or the face for a new set."
-      : "Round complete. Press space or the face to go again.";
-  }
-  return `Round ${done} of ${total} complete`;
-});
+const statusText = computed(() =>
+  results.value.totalRounds > 1
+    ? `Set complete (${results.value.totalRounds} rounds). Press space or the face for a new set.`
+    : "Round complete. Press space or the face to go again."
+);
+
+const isSingleRound = computed(() => results.value.totalRounds === 1);
+
+const tooltips = {
+  result: "Won if you cleared the round, Lost if you hit a mine.",
+  penalty:
+    "Mines hit during the round that did not end it. Only some scenarios allow this.",
+  summary:
+    "Combined results for the whole set. Rounds that you lost still count towards the averages.",
+  mean: "Average across the rounds where this metric could be measured.",
+  median:
+    "Middle value across the rounds. Less affected by one unusually good or bad round than the mean.",
+  best: "Your best round for this metric.",
+};
 
 function labelWithUnit(metric) {
   const unit = getMetricUnitLabel(metric.unit);
