@@ -495,22 +495,26 @@ class RawVF {
       }
 
       if (!isFirst) {
-        //The previous round's board is cleared, then the new mines are announced
-        const previousStates = this.getFinalPracticeStates(
-          rounds[roundIndex - 1]
-        );
-        const closeLines = [];
+        //The previous round's board is reset, then the new mines are announced.
+        //A reset also closes the cell, and is for cells whose mine data changes, so it covers every cell
+        //that was opened or flagged, plus closed cells that gain or lose a mine.
+        const previous = rounds[roundIndex - 1];
+        const previousStates = this.getFinalPracticeStates(previous);
+        const resetLines = [];
         for (let x = 0; x < round.width; x++) {
           for (let y = 0; y < round.height; y++) {
-            if (previousStates[x][y] !== CONSTANTS.UNREVEALED) {
-              closeLines.push(this.getBoardEventLine("closed", x, y));
+            if (
+              previousStates[x][y] !== CONSTANTS.UNREVEALED ||
+              previous.mines[x][y] !== round.mines[x][y]
+            ) {
+              resetLines.push(this.getBoardEventLine("reset", x, y));
             }
           }
         }
         items.push({
           time: round.boardHiddenOffset,
           priority: 1,
-          boardLines: closeLines,
+          boardLines: resetLines,
         });
         items.push({
           time: round.generatedOffset,
