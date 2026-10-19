@@ -216,6 +216,8 @@ class SkinManager {
       practiceButtonText: "#000000",
       practiceOverlayText: "#000000",
       practiceOverlayOutline: "#ffffff",
+      selectPreview: "rgba(60, 120, 255, 0.35)",
+      selectFinal: "rgba(90, 90, 90, 0.4)",
       hint: {
         safe: {
           hue: 120,
@@ -255,6 +257,8 @@ class SkinManager {
       practiceButtonText: "#ffffff",
       practiceOverlayText: "#ffffff",
       practiceOverlayOutline: "#000000",
+      selectPreview: "rgba(90, 150, 255, 0.4)",
+      selectFinal: "rgba(200, 200, 200, 0.3)",
       hint: {
         safe: {
           hue: 120,
@@ -428,6 +432,14 @@ class SkinManager {
       overlayText: colours.practiceOverlayText,
       overlayOutline: colours.practiceOverlayOutline,
     };
+  }
+
+  getSelectPreviewColour() {
+    return this.colours[boardSkin.value].selectPreview;
+  }
+
+  getSelectFinalColour() {
+    return this.colours[boardSkin.value].selectFinal;
   }
 
   getHintColour(colourScale, isFloating) {

@@ -23,7 +23,13 @@ import {
   faceHitbox,
   keyboardClickOpenOnKeyDown,
   recordButtonEvents,
+  editTool,
+  editDragPaint,
 } from "src/composables/useSettings";
+
+//Edit mode touches on a selection's surroundings only deselect if they look like a tap rather than a scroll attempt
+const EDIT_TAP_MAX_TIME = 750;
+const EDIT_TAP_MAX_TILES = 3;
 
 class BoardInput {
   constructor(board) {
@@ -45,6 +51,13 @@ class BoardInput {
     this.lastClientCoords = { clientX: 0, clientY: 0 }; //Coords used by keyboard clicks
     this.keyboardClickIsDigDown = false; //Used to help ignore repeating keys
     this.keyboardClickIsFlagDown = false; //Used to help ignore repeating keys
+
+    //Edit mode select drag in progress: null | { pointerId: "mouse" | touchIdentifier, source: "mouseButton" | "keyboard" | "touch", isDig }
+    this.activeDrag = null;
+
+    //Edit mode touch that started off the selection (so it may scroll), which deselects if it ends as a tap:
+    //null | { identifier, startTime, startScreenX, startScreenY, scrolled, valid }
+    this.editPendingTap = null;
   }
 
   resetInteractionState() {
@@ -131,6 +144,10 @@ class BoardInput {
     this.lastClientCoords.clientX = event.clientX;
     this.lastClientCoords.clientY = event.clientY;
 
+    if (this.board.gameStage === "edit") {
+      this.setEditMoveCursor(!isLeave && this.isEventOverEditSelection(event));
+    }
+
     if (
       this.board.variant === "practice" &&
       this.board.practice.isBetweenRounds()
@@ -193,6 +210,12 @@ class BoardInput {
     }
 
     //Adapted from https://developer.mozilla.org/en-US/docs/Web/API/Touch_events
+
+    if (this.board.gameStage === "edit" && this.isEditDragInputActive()) {
+      //Touches that don't start a drag are left alone so the page can scroll
+      this.handleEditSelectTouchStart(event);
+      return;
+    }
 
     const touches = event.changedTouches;
 
@@ -349,9 +372,31 @@ class BoardInput {
     }
 
     for (let touch of touches) {
+      if (this.editPendingTap?.identifier === touch.identifier) {
+        if (this.editPendingTap.valid) {
+          this.resolveEditTap(touch, event.timeStamp);
+        } else {
+          this.editPendingTap = null;
+        }
+        continue;
+      }
+
+      if (
+        this.activeDrag?.source === "touch" &&
+        this.activeDrag.pointerId === touch.identifier
+      ) {
+        this.endActiveDrag();
+        shouldPreventDefault = true;
+        continue;
+      }
+
       //Get touch entry and delete it (whilst hanging onto reference inside this function)
       let thisTouch = this.ongoingTouches.get(touch.identifier);
       this.ongoingTouches.delete(touch.identifier);
+
+      if (!thisTouch) {
+        continue; //Touch that never got registered, e.g. one ignored by the edit select tool
+      }
 
       if (thisTouch.isScrollingTouch) {
         shouldPreventDefault = false;
@@ -480,6 +525,16 @@ class BoardInput {
 
     //Adapted from https://developer.mozilla.org/en-US/docs/Web/API/Touch_events
 
+    if (this.activeDrag?.source === "touch") {
+      for (let touch of event.changedTouches) {
+        if (touch.identifier === this.activeDrag.pointerId) {
+          this.updateActiveDrag(touch);
+          event.preventDefault();
+          return;
+        }
+      }
+    }
+
     if (
       this.board.gameStage !== "pregame" &&
       this.board.gameStage !== "running"
@@ -601,8 +656,28 @@ class BoardInput {
     }
 
     for (let touch of touches) {
+      if (this.editPendingTap?.identifier === touch.identifier) {
+        this.editPendingTap.valid = false;
+        this.editPendingTap = null;
+        continue;
+      }
+
+      if (
+        this.activeDrag?.source === "touch" &&
+        this.activeDrag.pointerId === touch.identifier
+      ) {
+        this.activeDrag = null;
+        this.board.boardEdit.cancelDrag();
+        requiresRedraw = true;
+        continue;
+      }
+
       let thisTouch = this.ongoingTouches.get(touch.identifier);
       this.ongoingTouches.delete(touch.identifier);
+
+      if (!thisTouch) {
+        continue;
+      }
 
       if (thisTouch.isScrollingTouch) {
         shouldPreventDefault = false;
@@ -653,6 +728,10 @@ class BoardInput {
       if (isDown && this.keyboardClickIsDigDown) {
         return;
       }
+      //ignore a lone key up (e.g. from Ctrl+Z when z is the dig key)
+      if (!isDown && !this.keyboardClickIsDigDown) {
+        return;
+      }
       if (isDown) {
         this.keyboardClickIsDigDown = true;
       }
@@ -666,6 +745,9 @@ class BoardInput {
       if (isDown && this.keyboardClickIsFlagDown) {
         return;
       }
+      if (!isDown && !this.keyboardClickIsFlagDown) {
+        return;
+      }
       if (isDown) {
         this.keyboardClickIsFlagDown = true;
       }
@@ -676,12 +758,14 @@ class BoardInput {
 
     //If they have the setting for it, we do digs on key down instead of up
     //We do this by faking a key up input, and blocking the real key up
-    //This is very hacky
-    if (isDigInput && !isDown && keyboardClickOpenOnKeyDown.value) {
+    //This is very hacky. Not applicable in edit mode, where a key down is what toggles a mine.
+    const openOnKeyDown =
+      keyboardClickOpenOnKeyDown.value && this.board.gameStage !== "edit";
+    if (isDigInput && !isDown && openOnKeyDown) {
       //Block key up from doing anything
       return;
     }
-    if (isDigInput && isDown && keyboardClickOpenOnKeyDown.value) {
+    if (isDigInput && isDown && openOnKeyDown) {
       //Convert key down into key up
       isDown = false;
     }
@@ -690,6 +774,7 @@ class BoardInput {
       clientX: this.lastClientCoords.clientX,
       clientY: this.lastClientCoords.clientY,
       timeStamp: timeStamp,
+      fromKeyboard: true,
     };
 
     const canvasCoords = this.eventToCanvasCoord(fakeEvent);
@@ -723,6 +808,10 @@ class BoardInput {
     //On mobile, if the page starts scrolling, we should cancel all active touches.
     //Try keep this function fast as page scroll gets called a lot
 
+    if (this.editPendingTap) {
+      this.editPendingTap.scrolled = true;
+    }
+
     let redrawRequired = false;
 
     for (let touch of this.ongoingTouches.values()) {
@@ -749,6 +838,221 @@ class BoardInput {
 
     if (redrawRequired) {
       this.board.boardRenderer.draw();
+    }
+  }
+
+  handleEditSelectTouchStart(event) {
+    if (this.editPendingTap) {
+      this.editPendingTap.valid = false;
+      if (event.touches.length !== event.changedTouches.length) {
+        return; //Another finger is down, e.g. a pinch, so neither touch is a tap
+      }
+      this.editPendingTap = null; //Left over from a touch that already finished
+    }
+
+    if (this.activeDrag) {
+      return; //Other touches are ignored while a selection is being dragged
+    }
+
+    for (let touch of event.changedTouches) {
+      const coordsData = {
+        canvasCoords: this.eventToCanvasCoord(touch),
+        flooredCoords: this.eventToFlooredTileCoords(touch),
+        unflooredCoords: this.eventToUnflooredTileCoords(touch),
+      };
+
+      if (
+        this.board.boardEdit.session &&
+        !this.board.boardEdit.isTileInSelection(
+          coordsData.flooredCoords.tileX,
+          coordsData.flooredCoords.tileY
+        )
+      ) {
+        //Not grabbing the selection, so let the page scroll. If it ends as a tap it deselects instead.
+        this.editPendingTap = {
+          identifier: touch.identifier,
+          startTime: event.timeStamp,
+          startScreenX: touch.screenX,
+          startScreenY: touch.screenY,
+          scrolled: false,
+          valid: event.touches.length === 1,
+        };
+        return;
+      }
+
+      this.handlePointerInput(
+        true,
+        false,
+        false,
+        true,
+        true,
+        coordsData,
+        event,
+        touch.identifier
+      );
+
+      if (this.activeDrag) {
+        event.preventDefault(); //Stops the drag scrolling the page
+        return;
+      }
+    }
+  }
+
+  isEditDragInputActive() {
+    //Select tools always drag, the toggle tool only when Drag is on
+    return editTool.value !== "toggle" || editDragPaint.value;
+  }
+
+  resolveEditTap(touch, endTimeStamp) {
+    const tap = this.editPendingTap;
+    const movedTiles =
+      Math.hypot(
+        touch.screenX - tap.startScreenX,
+        touch.screenY - tap.startScreenY
+      ) / this.board.tileSize;
+
+    if (
+      endTimeStamp - tap.startTime >= EDIT_TAP_MAX_TIME ||
+      movedTiles >= EDIT_TAP_MAX_TILES
+    ) {
+      this.editPendingTap = null;
+      return;
+    }
+
+    //Scroll events are dispatched before animation frame callbacks, so by then a scroll that began before the touch ended is flagged
+    requestAnimationFrame(() => {
+      if (this.editPendingTap === tap) {
+        this.editPendingTap = null;
+      }
+      if (tap.valid && !tap.scrolled && this.board.boardEdit.session) {
+        this.board.boardEdit.closeSelection();
+      }
+    });
+  }
+
+  handleViewportScroll() {
+    //Panning while pinch-zoomed moves the visual viewport without firing a window scroll
+    if (this.editPendingTap) {
+      this.editPendingTap.scrolled = true;
+    }
+  }
+
+  isEventOverEditSelection(event) {
+    const { tileX, tileY } = this.eventToFlooredTileCoords(event);
+    return this.board.boardEdit.isTileInSelection(tileX, tileY);
+  }
+
+  setEditMoveCursor(isOverSelection) {
+    const canvas = this.board.mainCanvas?.value;
+    if (canvas) {
+      canvas.style.cursor = isOverSelection ? "move" : "";
+    }
+  }
+
+  handleEditSelectInput(
+    isDigInput,
+    isFlagInput,
+    isTouchInput,
+    isDown,
+    flooredCoords,
+    event,
+    touchIdentifier
+  ) {
+    //Returns true if the input started or ended a selection drag
+    if (!isDigInput && !isFlagInput) {
+      return false;
+    }
+
+    const source = isTouchInput
+      ? "touch"
+      : event.fromKeyboard
+      ? "keyboard"
+      : "mouseButton";
+
+    if (isDown) {
+      if (
+        this.activeDrag ||
+        !this.board.boardEdit.beginDrag(
+          flooredCoords.tileX,
+          flooredCoords.tileY
+        )
+      ) {
+        return false;
+      }
+
+      this.activeDrag = {
+        pointerId: touchIdentifier,
+        source,
+        isDig: isDigInput,
+      };
+      this.board.boardRenderer.draw();
+      return true;
+    }
+
+    const drag = this.activeDrag;
+    if (
+      drag &&
+      drag.pointerId === touchIdentifier &&
+      drag.source === source &&
+      drag.isDig === isDigInput
+    ) {
+      this.endActiveDrag();
+      return true;
+    }
+
+    return false;
+  }
+
+  updateActiveDrag(eventOrTouch) {
+    if (
+      this.board.boardEdit.updateDrag(
+        this.eventToUnflooredTileCoords(eventOrTouch)
+      )
+    ) {
+      this.board.boardRenderer.draw();
+    }
+  }
+
+  endActiveDrag() {
+    this.activeDrag = null;
+    this.board.boardEdit.endDrag();
+    this.board.boardRenderer.draw();
+  }
+
+  handleWindowMouseMove(event) {
+    //Window level so a drag keeps tracking when the pointer leaves the canvas
+    if (
+      !this.activeDrag ||
+      this.activeDrag.source === "touch" ||
+      mobileModeEnabled.value
+    ) {
+      return;
+    }
+
+    this.lastClientCoords.clientX = event.clientX;
+    this.lastClientCoords.clientY = event.clientY;
+    this.updateActiveDrag(event);
+  }
+
+  handleWindowMouseUp(event) {
+    //Releases on the canvas are handled by handlePointerInput, this covers releases elsewhere
+    const drag = this.activeDrag;
+    if (
+      !drag ||
+      drag.source !== "mouseButton" ||
+      event.target === this.board.mainCanvas.value
+    ) {
+      return;
+    }
+
+    if (event.button === (drag.isDig ? 0 : 2)) {
+      this.endActiveDrag();
+    }
+  }
+
+  handleWindowBlur() {
+    if (this.activeDrag) {
+      this.endActiveDrag();
     }
   }
 
@@ -877,6 +1181,23 @@ class BoardInput {
 
     // ########## Check for face click #############
 
+    //A press that starts or ends an edit mode drag (selection or mine painting) is never a face click
+    if (
+      this.board.gameStage === "edit" &&
+      this.isEditDragInputActive() &&
+      this.handleEditSelectInput(
+        isDigInput,
+        isFlagInput,
+        isTouchInput,
+        isDown,
+        flooredCoords,
+        event,
+        touchIdentifier
+      )
+    ) {
+      return;
+    }
+
     //Check for face click and exit early if it was clicked on
     if (
       (!isTouchInput && isDigInput && !isDown) ||
@@ -932,8 +1253,16 @@ class BoardInput {
 
     //handle clicks in edit mode and exit early if nothing to do
     if (this.board.gameStage === "edit") {
-      if (mouseDownOrTouchUp && (isDigInput || isFlagInput)) {
-        this.board.handleEditClick(flooredCoords.tileX, flooredCoords.tileY);
+      //Select tools never toggle mines
+      if (
+        editTool.value === "toggle" &&
+        mouseDownOrTouchUp &&
+        (isDigInput || isFlagInput)
+      ) {
+        this.board.boardEdit.handleEditClick(
+          flooredCoords.tileX,
+          flooredCoords.tileY
+        );
         this.board.boardRenderer.draw();
       }
 

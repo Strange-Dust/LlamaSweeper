@@ -1,7 +1,7 @@
 //See useCoordssettings, but put EVERYTHING in here.
 
 import { ref, computed, watchEffect } from "vue";
-import { useLocalStorage } from "@vueuse/core";
+import { useLocalStorage, useSessionStorage } from "@vueuse/core";
 import Utils from "src/classes/Utils";
 import { isWasmAvailable, wasmReadySettled } from "src/classes/RustWasm";
 
@@ -361,6 +361,31 @@ let editBoardUnappliedHeight = ref(9);
 let pttaImportModal = ref(false);
 let mbfImportModal = ref(false);
 let isCurrentlyEditModeDisplay = ref(true); //Lines up with game.board.gameStage = 'edit' - consider making ...gameStage a ref instead.
+let editTool = ref("toggle"); //toggle|rect|lasso
+let editCanUndo = ref(false); //Kept in sync by BoardEdit as undo stacks are per variant
+let editCanRedo = ref(false);
+let editSelectionActive = ref(false); //Kept in sync by BoardEdit.syncSelectionUi
+let editSelectionBox = ref(null); //On-board tile bounds of the selection { minX, minY, maxX, maxY }, for placing the context box
+let editFillPanelOpen = ref(false);
+let editDragInProgress = ref(false);
+let editFillPercent = useSessionStorage("ss_editFillPercent", 20);
+let editDragPaint = useLocalStorage("ls_editDragPaint", false); //Toggle tool paints mines/safes while dragging
+let editOverwrite = useLocalStorage("ls_editOverwrite", true); //Selection replaces the mines below it, rather than merging with them
+//{ v: 1, w, h, x, y, tool, mask, mines } - parsed/validated by BoardEdit.parseClipboard
+//Explicit serializer as a null default would otherwise be stored with String(), giving "[object Object]"
+let editClipboard = useLocalStorage("ls_editClipboard", null, {
+  serializer: {
+    read: (rawValue) => {
+      try {
+        return JSON.parse(rawValue);
+      } catch {
+        return null;
+      }
+    },
+    write: (value) => JSON.stringify(value),
+  },
+});
+let editHasClipboard = computed(() => editClipboard.value !== null);
 
 let flagToggleActive = ref(false); //Whether to swap left and right mouse buttons
 let flagToggleShowReset = ref(false); //Shows after blast/game win to allow easier reset on mobile
@@ -625,6 +650,15 @@ function resetTransientSettings() {
   quickPaintModeDisplay.value = "Guess";
   quickPaintClearable.value = "guesses";
 
+  //Edit mode
+  editTool.value = "toggle";
+  editCanUndo.value = false;
+  editCanRedo.value = false;
+  editSelectionActive.value = false;
+  editSelectionBox.value = null;
+  editFillPanelOpen.value = false;
+  editDragInProgress.value = false;
+
   //Replay state
   replayIsShown.value = false;
   replayIsPlaying.value = false;
@@ -764,6 +798,18 @@ export {
   pttaImportModal,
   mbfImportModal,
   isCurrentlyEditModeDisplay,
+  editTool,
+  editCanUndo,
+  editCanRedo,
+  editSelectionActive,
+  editSelectionBox,
+  editFillPanelOpen,
+  editDragInProgress,
+  editFillPercent,
+  editDragPaint,
+  editOverwrite,
+  editClipboard,
+  editHasClipboard,
   flagToggleActive,
   flagToggleShowReset,
   flagToggleLocationClass,

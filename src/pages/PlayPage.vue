@@ -95,31 +95,34 @@
               : gameVerticalPadding,
         }"
       >
-        <canvas
-          ref="main-canvas"
-          id="main-canvas"
-          @contextmenu.prevent
-          @mousedown="game.handleMouseDown($event)"
-          @mouseup="game.handleMouseUp($event)"
-          @mousemove="game.handleMouseMove($event)"
-          @mouseenter="game.handleMouseEnter($event)"
-          @mouseleave="game.handleMouseLeave($event)"
-          @touchstart="game.handleTouchStart($event)"
-          @touchmove="game.handleTouchMove($event)"
-          @touchend="game.handleTouchEnd($event)"
-          @touchcancel="game.handleTouchCancel($event)"
-          :style="{
-            touchAction:
-              touchActionOverride !== 'ignore'
-                ? touchActionOverride
-                : mobileScrollSetting === 'disable'
-                ? 'none'
-                : 'manipulation',
-            marginLeft: 0 /*gameCalculatedMarginLeft*/,
-            filter: filterStyleProperty,
-          }"
-        >
-        </canvas>
+        <div class="canvas-wrapper">
+          <canvas
+            ref="main-canvas"
+            id="main-canvas"
+            @contextmenu.prevent
+            @mousedown="game.handleMouseDown($event)"
+            @mouseup="game.handleMouseUp($event)"
+            @mousemove="game.handleMouseMove($event)"
+            @mouseenter="game.handleMouseEnter($event)"
+            @mouseleave="game.handleMouseLeave($event)"
+            @touchstart="game.handleTouchStart($event)"
+            @touchmove="game.handleTouchMove($event)"
+            @touchend="game.handleTouchEnd($event)"
+            @touchcancel="game.handleTouchCancel($event)"
+            :style="{
+              touchAction:
+                touchActionOverride !== 'ignore'
+                  ? touchActionOverride
+                  : mobileScrollSetting === 'disable'
+                  ? 'none'
+                  : 'manipulation',
+              marginLeft: 0 /*gameCalculatedMarginLeft*/,
+              filter: filterStyleProperty,
+            }"
+          >
+          </canvas>
+          <EditSelectionBox v-if="editSelectionActive && !editDragInProgress" />
+        </div>
         <q-resize-observer debounce="30" @resize="game.refreshSize()" />
 
         <StatsPanel
@@ -235,11 +238,15 @@
   align-items: flex-start;
 }
 
-#main-canvas {
-  user-select: none;
-  float: left;
+.canvas-wrapper {
+  position: relative;
   margin-right: 10px;
   margin-bottom: 10px;
+}
+
+#main-canvas {
+  user-select: none;
+  display: block;
   touch-action: manipulation;
   -webkit-touch-callout: none;
 }
@@ -285,6 +292,7 @@ import EffBoardsConfig from "src/components/EffBoardsConfig.vue";
 import MobileFlagButton from "src/components/MobileFlagButton.vue";
 import QuickStatsBox from "src/components/QuickStatsBox.vue";
 import EditorControls from "src/components/EditorControls.vue";
+import EditSelectionBox from "src/components/EditSelectionBox.vue";
 import BoardConfigBar from "src/components/BoardConfigBar.vue";
 import MeanOpeningsConfig from "src/components/MeanOpeningsConfig.vue";
 import EffBoardsStatusBar from "src/components/EffBoardsStatusBar.vue";
@@ -343,6 +351,10 @@ import {
   practiceResults,
   resetTransientSettings,
   pixelScale,
+  editTool,
+  editHasClipboard,
+  editSelectionActive,
+  editDragInProgress,
 } from "src/composables/useSettings";
 
 defineOptions({
@@ -354,9 +366,12 @@ onMounted(() => {
   document.body.addEventListener("keydown", handleKeyDown, true);
   document.body.addEventListener("keyup", handleKeyUp, true);
   window.addEventListener("scroll", handlePageScroll);
+  window.visualViewport?.addEventListener("scroll", handleViewportScroll);
   //Capture phase so components that stop propagation can't hide presses/releases
   window.addEventListener("mousedown", handleWindowMouseDown, true);
   window.addEventListener("mouseup", handleWindowMouseUp, true);
+  window.addEventListener("mousemove", handleWindowMouseMove);
+  window.addEventListener("blur", handleWindowBlur);
   skinManager.addCallbackWhenAllPriorityLoaded(() => {
     game.initialise();
   });
@@ -372,14 +387,62 @@ onUnmounted(() => {
   document.body.removeEventListener("keydown", handleKeyDown, true);
   document.body.removeEventListener("keyup", handleKeyUp, true);
   window.removeEventListener("scroll", handlePageScroll);
+  window.visualViewport?.removeEventListener("scroll", handleViewportScroll);
   window.removeEventListener("mousedown", handleWindowMouseDown, true);
   window.removeEventListener("mouseup", handleWindowMouseUp, true);
+  window.removeEventListener("mousemove", handleWindowMouseMove);
+  window.removeEventListener("blur", handleWindowBlur);
   game.unmount();
   effShuffleManager.deactivateBackgroundGeneration();
   statsWorkerManager.softReset();
 });
 
 function handleKeyDown(event) {
+  if (event.ctrlKey || event.metaKey) {
+    //Ctrl combos never reach the keyboard click handling below (e.g. Ctrl+Z when z is the dig key)
+    if (game.board?.gameStage === "edit") {
+      const key = event.key.toLowerCase();
+      const isUndo = key === "z" && !event.shiftKey;
+      const isRedo = key === "y" || (key === "z" && event.shiftKey);
+      if ((isUndo || isRedo) && checkFocusForKeyPress(event)) {
+        isUndo ? game.board.boardEdit.undo() : game.board.boardEdit.redo();
+      } else if (
+        key === "c" &&
+        game.board.boardEdit.session &&
+        checkEditShortcutAllowed(event)
+      ) {
+        game.board.boardEdit.copySelection();
+      } else if (
+        key === "x" &&
+        game.board.boardEdit.session &&
+        checkEditShortcutAllowed(event)
+      ) {
+        game.board.boardEdit.cutSelection();
+      } else if (
+        key === "v" &&
+        editHasClipboard.value &&
+        checkEditShortcutAllowed(event)
+      ) {
+        game.board.boardEdit.pasteClipboard();
+      }
+    }
+    return;
+  }
+
+  if (
+    game.board?.gameStage === "edit" &&
+    game.board.boardEdit.session &&
+    (event.key === "Escape" ||
+      event.key === "Delete" ||
+      event.key === "Backspace") &&
+    checkEditShortcutAllowed(event)
+  ) {
+    event.key === "Escape"
+      ? game.board.boardEdit.closeSelection()
+      : game.board.boardEdit.setSelectionMines(false);
+    return;
+  }
+
   if (event.key.toLowerCase() === keyboardClickDigKey.value.toLowerCase()) {
     if (!checkFocusForKeyPress(event)) {
       return;
@@ -475,6 +538,23 @@ function handleWindowMouseUp(event) {
   }
 
   game.board.boardInput.recordOffCanvasMouseButton(event, false);
+  game.board.boardInput.handleWindowMouseUp(event);
+}
+
+function handleWindowMouseMove(event) {
+  game.board?.boardInput.handleWindowMouseMove(event);
+}
+
+function handleWindowBlur() {
+  game.board?.boardInput.handleWindowBlur();
+}
+
+function checkEditShortcutAllowed(event) {
+  //Don't act under an open dialog (e.g. the crop confirmation)
+  if (document.querySelector(".q-dialog")) {
+    return false;
+  }
+  return checkFocusForKeyPress(event);
 }
 
 function checkFocusForKeyPress(event) {
@@ -502,6 +582,10 @@ function checkFocusForKeyPress(event) {
   event.stopPropagation();
 
   return true;
+}
+
+function handleViewportScroll() {
+  game.board?.boardInput.handleViewportScroll();
 }
 
 function handlePageScroll(event) {
@@ -544,6 +628,13 @@ watch(
 
 watch(pixelScale, () => {
   game.refreshSize();
+});
+
+watch(editTool, () => {
+  if (!game.board) {
+    return;
+  }
+  game.board.boardEdit.handleToolChange();
 });
 
 const vFocus = {
