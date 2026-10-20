@@ -6,7 +6,7 @@ Scenario logic belongs in this folder. `Board`, `BoardInput`, `BoardActions` and
 
 ## Adding a scenario
 
-1. Create a definition in `scenarios/` (plain data, see `scenarios/flick.js`).
+1. Create a definition in `scenarios/` (plain data, see `scenarios/flick.js` or `scenarios/line.js`). The start-style option choices that most scenarios want are shared in `scenarios/startStyles.js`.
 2. Register it in `index.js` with `PracticeRegistry.registerScenario(...)`.
 
 If the scenario needs new behaviour, add a building block and register it in `index.js`:

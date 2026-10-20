@@ -8,12 +8,15 @@
 import PracticeRegistry from "./PracticeRegistry";
 
 import singleTarget from "./generators/singleTarget";
+import line from "./generators/line";
 import { allSafeRevealed, targetsRevealed } from "./completion/rules";
 import aimMetrics from "./metrics/aimMetrics";
 
 import flick from "./scenarios/flick";
+import lineScenario from "./scenarios/line";
 
 PracticeRegistry.registerGenerator("single-target", singleTarget);
+PracticeRegistry.registerGenerator("line", line);
 
 PracticeRegistry.registerCompletionRule("all-safe-revealed", allSafeRevealed);
 PracticeRegistry.registerCompletionRule("targets-revealed", targetsRevealed);
@@ -21,6 +24,7 @@ PracticeRegistry.registerCompletionRule("targets-revealed", targetsRevealed);
 aimMetrics.forEach((metric) => PracticeRegistry.registerMetric(metric));
 
 PracticeRegistry.registerScenario(flick);
+PracticeRegistry.registerScenario(lineScenario);
 
 export { PracticeRegistry };
 export {

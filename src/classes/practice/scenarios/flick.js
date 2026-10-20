@@ -1,64 +1,6 @@
 //Flick: the board is fully revealed except one safe square to click as fast as possible.
 
-const startChoices = [
-  {
-    label: "3-2-1 countdown",
-    value: "countdown",
-    resolved: { trigger: "button", timing: { countdown: 3, delay: 0 } },
-  },
-  {
-    label: "Random delay (reflex)",
-    value: "random",
-    resolved: {
-      trigger: "button",
-      timing: { countdown: 0, delay: { min: 1000, max: 3000 } },
-    },
-  },
-  {
-    label: "Immediately",
-    value: "immediate",
-    resolved: { trigger: "button", timing: { countdown: 0, delay: 0 } },
-  },
-];
-
-const betweenChoices = [
-  {
-    label: "Random delay 0.5–2s",
-    value: "random",
-    resolved: {
-      trigger: "auto",
-      holdMs: 0,
-      timing: { countdown: 0, delay: { min: 500, max: 2000 } },
-    },
-  },
-  {
-    label: "Immediately",
-    value: "immediate",
-    resolved: {
-      trigger: "auto",
-      holdMs: 0,
-      timing: { countdown: 0, delay: 0 },
-    },
-  },
-  {
-    label: "3-2-1 countdown",
-    value: "countdown",
-    resolved: {
-      trigger: "auto",
-      holdMs: 0,
-      timing: { countdown: 3, delay: 0 },
-    },
-  },
-  {
-    label: "Start button",
-    value: "button",
-    resolved: {
-      trigger: "button",
-      holdMs: 0,
-      timing: { countdown: 0, delay: 0 },
-    },
-  },
-];
+import { firstStartChoices, betweenStartChoices } from "./startStyles";
 
 export default {
   id: "flick",
@@ -105,14 +47,14 @@ export default {
       type: "select",
       label: "First round start",
       default: "countdown",
-      choices: startChoices,
+      choices: firstStartChoices,
     },
     {
       key: "betweenStart",
       type: "select",
       label: "Between rounds",
       default: "random",
-      choices: betweenChoices,
+      choices: betweenStartChoices,
     },
   ],
 };
